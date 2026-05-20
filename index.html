@@ -1448,10 +1448,38 @@ function changeDate(dir){
 }
 
 function toggleScanner(){
-  scannerActive=!scannerActive;
-  const laser=document.getElementById('scannerLaser'),hint=document.getElementById('scannerHint');
-  if(scannerActive){laser.style.display='block';hint.textContent='Scanning… (demo mode)';
-    setTimeout(()=>{laser.style.display='none';hint.textContent='Tap "Scan Barcode" to activate';scannerActive=false;showToast('📷 Barcode scanner requires camera access in production');},3000);
+
+  if(!window.html5QrcodeScanner){
+    window.html5QrcodeScanner = new Html5QrcodeScanner(
+      "reader",
+      { fps: 10, qrbox: 250 }
+    );
+
+    window.html5QrcodeScanner.render(async (decodedText) => {
+
+      showToast("Scanning...");
+
+      const food = await getFoodFromBarcode(decodedText);
+
+      if(food){
+        showToast(`🍎 ${food.name} (${food.calories} kcal)`);
+        console.log(food);
+      } else {
+        showToast("Food not found ❌");
+      }
+
+      window.html5QrcodeScanner.clear().then(() => {
+        window.html5QrcodeScanner = null;
+        document.getElementById("reader").innerHTML = "";
+      });
+
+    });
+
+  } else {
+    window.html5QrcodeScanner.clear().then(() => {
+      window.html5QrcodeScanner = null;
+      document.getElementById("reader").innerHTML = "";
+    });
   }
 }
 
@@ -1471,7 +1499,11 @@ function showToast(msg,color='var(--green)'){
 }
 
 init();
-</script>
+</body>
+<button onclick="toggleScanner()">Scan food</button>
+
+<div id="reader"></div>
+
 <script src="https://unpkg.com/html5-qrcode"></script>
 </body>
 </html>
