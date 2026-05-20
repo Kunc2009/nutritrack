@@ -1455,83 +1455,106 @@ function changeDate(dir){
 
 <script>
 let html5QrcodeScanner = null;
+let scanningLocked = false;
+async function stopScanner() {
+  if (html5QrcodeScanner) {
+    try {
+      await html5QrcodeScanner.clear();
+    } catch (e) {
+      console.log("Scanner clear error:", e);
+    }
 
-function toggleScanner(){
+    html5QrcodeScanner = null;
+  }
+
+  scanningLocked = false;
+  document.getElementById("reader").style.display = "none";
+}
+  function onScanError(err) {
+  // ignoriramo (normalno pri QR scannerju)
+}
+  async function startScanner() {
   const reader = document.getElementById("reader");
-  
-  if(html5QrcodeScanner){
-    html5QrcodeScanner.clear().then(() => {
-      html5QrcodeScanner = null;
-      reader.style.display = "none";
-    });
+  reader.style.display = "block";
+
+  html5QrcodeScanner = new Html5QrcodeScanner("reader", {
+    fps: 8,
+    qrbox: { width: 220, height: 220 },
+    rememberLastUsedCamera: true,
+    aspectRatio: 1.0,
+    showTorchButtonIfSupported: true,
+    defaultZoomValueIfSupported: 2
+  }, false);
+
+  html5QrcodeScanner.render(onScanSuccess, onScanError);
+}
+
+async function toggleScanner() {
+  if (html5QrcodeScanner !== null) {
+    await stopScanner();
     return;
   }
 
-  reader.style.display = "block";
-
-  setTimeout(() => {
-    try {
-      html5QrcodeScanner = new Html5QrcodeScanner("reader", {
-        fps: 10,
-        qrbox: { width: 250, height: 250 },
-        rememberLastUsedCamera: true,
-        aspectRatio: 1.0
-      }, false);
-
-      html5QrcodeScanner.render(onScanSuccess, onScanError);
-      console.log("✅ Scanner successfully started");
-    } catch(e) {
-      console.error("Scanner error:", e);
-      showToast("Napaka pri zagonu kamere", 'var(--red)');
-    }
-  }, 300);
+  await startScanner();
 }
-
 async function onScanSuccess(decodedText, decodedResult) {
+  if (scanningLocked) return;
+
+  scanningLocked = true;
+
   console.log("✅ Scanned barcode:", decodedText);
-  
+
   showToast("🔍 Iščem izdelek...", 'var(--orange)');
 
   const food = await findFoodByBarcode(decodedText);
-  
+
   if (food && food.name) {
-    showToast(`✅ ${food.name} (${food.cal} kcal)`, 'var(--green)');
-    if (typeof quickAdd === "function") quickAdd(food.name);
+    showToast(`✅ ${food.name} (${food.cal ?? "?"} kcal)`, 'var(--green)');
+
+    if (typeof quickAdd === "function") {
+      quickAdd(food.name);
+    }
+
   } else {
     showToast("❌ Izdelek ni najden v bazi", 'var(--orange)');
   }
 
   setTimeout(() => {
-    if (html5QrcodeScanner) {
-      html5QrcodeScanner.clear();
-      html5QrcodeScanner = null;
-      document.getElementById("reader").style.display = "none";
-    }
+    stopScanner();
   }, 1400);
 }
-
-function onScanError(err) {
-  // Normalno obnašanje - ignoriramo
-}
-
 async function findFoodByBarcode(barcode) {
   try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+    const controller = new AbortController();
+const timeoutId = setTimeout(() => {
+  controller.abort();
+}, 5000);
+
+const res = await fetch(
+  `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`,
+  { signal: controller.signal }
+);
     const data = await res.json();
-    
+    clearTimeout(timeoutId);
+
     if (data.status === 1 && data.product) {
       const p = data.product;
+
+      const cal = p.nutriments?.["energy-kcal_100g"];
+
       return {
         name: p.product_name || p.abbreviated_product_name || "Unknown Product",
-        cal: Math.round(p.nutriments?.["energy-kcal_100g"] || 0)
+        cal: cal ? Math.round(cal) : null
       };
     }
-  } catch(e) {
-    console.log("API error:", e);
+
+  } catch (e) {
+    console.log("OpenFoodFacts API error:", e);
+    showToast("⚠️ Napaka pri povezavi", "var(--orange)");
   }
+
   return null;
 }
-
 // ==================== END OF SCANNER ====================
 
 function switchProgressTab(tab,el){
@@ -1546,13 +1569,20 @@ function switchProgressTab(tab,el){
 
 function showToast(msg, color='var(--green)'){
   const t = document.getElementById('toast');
+
+  clearTimeout(t._timeout);
+
   t.textContent = msg;
   t.style.background = color;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
-}
 
-init();
+  t._timeout = setTimeout(() => {
+    t.classList.remove('show');
+  }, 2800);
+}
+window.addEventListener("DOMContentLoaded", () => {
+  init();
+});
 </script>
 </body>
 </html>
