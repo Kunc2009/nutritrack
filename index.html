@@ -1450,7 +1450,11 @@ function changeDate(dir){
   } else {state.meals={breakfast:[],lunch:[],dinner:[],snacks:[]};state.water=0;}
   save();renderAll();
 }
-// ==================== BARCODE SCANNER (Open Food Facts API) ====================
+<!-- ==================== BARCODE SCANNER (Open Food Facts) ==================== -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+<script>
+// ==================== BARCODE SCANNER ====================
 
 function toggleScanner(){
   const reader = document.getElementById("reader");
@@ -1466,12 +1470,8 @@ function toggleScanner(){
   reader.style.display = "block";
 
   window.html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader",
-    { 
-      fps: 10, 
-      qrbox: { width: 250, height: 250 },
-      rememberLastUsedCamera: true 
-    },
+    "reader", 
+    { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true }, 
     false
   );
 
@@ -1479,22 +1479,17 @@ function toggleScanner(){
 }
 
 async function onScanSuccess(decodedText, decodedResult) {
-  console.log("Scanned barcode:", decodedText);
+  console.log("Scanned:", decodedText);
   
-  showToast("🔍 Iščem v bazi Open Food Facts...", 'var(--orange)');
+  showToast("🔍 Iščem v bazi...", 'var(--orange)');
 
   const food = await findFoodByBarcode(decodedText);
   
   if (food) {
     showToast(`✅ ${food.name} (${food.cal} kcal)`, 'var(--green)');
-    
-    if (typeof quickAdd === "function") {
-      quickAdd(food.name);
-    } else {
-      showToast("Izdelek najden! Lahko ga dodaš ročno.", 'var(--green)');
-    }
+    if (typeof quickAdd === "function") quickAdd(food.name);
   } else {
-    showToast("❌ Izdelek ni najden v bazi", 'var(--orange)');
+    showToast("❌ Izdelek ni najden v Open Food Facts", 'var(--orange)');
   }
 
   setTimeout(() => {
@@ -1507,23 +1502,23 @@ async function onScanSuccess(decodedText, decodedResult) {
 }
 
 function onScanError(error) {
-  // Tiho ignoriramo (normalno obnašanje)
+  // normalno (ni barkode)
 }
 
 async function findFoodByBarcode(barcode) {
   try {
-    const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
-    const data = await response.json();
-
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+    const data = await res.json();
+    
     if (data.status === 1 && data.product) {
       const p = data.product;
       return {
-        name: p.product_name || p.abbreviated_product_name || p.generic_name || "Unknown Product",
-        cal: Math.round(p.nutriments?.["energy-kcal_100g"] || p.nutriments?.energy_value / 4.184 || 0),
+        name: p.product_name || p.abbreviated_product_name || "Unknown Product",
+        cal: Math.round(p.nutriments?.["energy-kcal_100g"] || 0)
       };
     }
-  } catch (e) {
-    console.log("API napaka:", e);
+  } catch(e) {
+    console.log("API error:", e);
   }
   return null;
 }
@@ -1533,21 +1528,22 @@ async function findFoodByBarcode(barcode) {
 function switchProgressTab(tab,el){
   document.querySelectorAll('#page-progress .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('progressToday').style.display=tab==='today'?'block':'none';
-  document.getElementById('progressWeek').style.display=tab==='week'?'block':'none';
-  document.getElementById('progressWeight').style.display=tab==='weight'?'block':'none';
+  document.getElementById('progressToday').style.display = tab==='today' ? 'block' : 'none';
+  document.getElementById('progressWeek').style.display = tab==='week' ? 'block' : 'none';
+  document.getElementById('progressWeight').style.display = tab==='weight' ? 'block' : 'none';
   if(tab==='weight') renderWeightLog();
   if(tab==='week') renderWeekChart();
 }
 
-function showToast(msg,color='var(--green)'){
-  const t=document.getElementById('toast');t.textContent=msg;t.style.background=color;
-  t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);
+function showToast(msg, color='var(--green)'){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
 }
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-<script>
-  init();
+init();
 </script>
 </body>
 </html>
