@@ -1497,13 +1497,19 @@ function showToast(msg,color='var(--green)'){
   const t=document.getElementById('toast');t.textContent=msg;t.style.background=color;
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);
 }
+  <!-- SCANNER UI (TO MORA BITI V BODY) -->
+  <h2>Barcode Scanner</h2>
+  <button onclick="toggleScanner()">Scan food</button>
 
-init();
-</body>
-<button onclick="toggleScanner()">Scan food</button>
+  <div id="reader" style="width:300px; margin-top:10px;"></div>
 
-<div id="reader"></div>
+  <!-- JS LIBRARY -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+  <!-- YOUR APP SCRIPT END -->
+  <script>
+    init();
+  </script>
+
 </body>
 </html>
