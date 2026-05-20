@@ -1450,18 +1450,18 @@ function changeDate(dir){
   } else {state.meals={breakfast:[],lunch:[],dinner:[],snacks:[]};state.water=0;}
   save();renderAll();
 }
-<!-- ==================== BARCODE SCANNER (Open Food Facts) ==================== -->
+<!-- ==================== BARCODE SCANNER ==================== -->
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
 <script>
-// ==================== BARCODE SCANNER ====================
+let html5QrcodeScanner = null;
 
 function toggleScanner(){
   const reader = document.getElementById("reader");
   
-  if(window.html5QrcodeScanner){
-    window.html5QrcodeScanner.clear().then(() => {
-      window.html5QrcodeScanner = null;
+  if(html5QrcodeScanner){
+    html5QrcodeScanner.clear().then(() => {
+      html5QrcodeScanner = null;
       reader.style.display = "none";
     });
     return;
@@ -1469,40 +1469,49 @@ function toggleScanner(){
 
   reader.style.display = "block";
 
-  window.html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader", 
-    { fps: 10, qrbox: { width: 250, height: 250 }, rememberLastUsedCamera: true }, 
-    false
-  );
+  setTimeout(() => {
+    try {
+      html5QrcodeScanner = new Html5QrcodeScanner("reader", {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        rememberLastUsedCamera: true,
+        aspectRatio: 1.0
+      }, false);
 
-  window.html5QrcodeScanner.render(onScanSuccess, onScanError);
+      html5QrcodeScanner.render(onScanSuccess, onScanError);
+      console.log("✅ Scanner successfully started");
+    } catch(e) {
+      console.error("Scanner error:", e);
+      showToast("Napaka pri zagonu kamere", 'var(--red)');
+    }
+  }, 300);
 }
 
 async function onScanSuccess(decodedText, decodedResult) {
-  console.log("Scanned:", decodedText);
+  console.log("✅ Scanned barcode:", decodedText);
   
-  showToast("🔍 Iščem v bazi...", 'var(--orange)');
+  showToast("🔍 Iščem izdelek...", 'var(--orange)');
 
   const food = await findFoodByBarcode(decodedText);
   
-  if (food) {
+  if (food && food.name) {
     showToast(`✅ ${food.name} (${food.cal} kcal)`, 'var(--green)');
     if (typeof quickAdd === "function") quickAdd(food.name);
   } else {
-    showToast("❌ Izdelek ni najden v Open Food Facts", 'var(--orange)');
+    showToast("❌ Izdelek ni najden v bazi", 'var(--orange)');
   }
 
   setTimeout(() => {
-    if (window.html5QrcodeScanner) {
-      window.html5QrcodeScanner.clear();
-      window.html5QrcodeScanner = null;
+    if (html5QrcodeScanner) {
+      html5QrcodeScanner.clear();
+      html5QrcodeScanner = null;
       document.getElementById("reader").style.display = "none";
     }
-  }, 1600);
+  }, 1400);
 }
 
-function onScanError(error) {
-  // normalno (ni barkode)
+function onScanError(err) {
+  // Normalno obnašanje - ignoriramo
 }
 
 async function findFoodByBarcode(barcode) {
@@ -1528,9 +1537,9 @@ async function findFoodByBarcode(barcode) {
 function switchProgressTab(tab,el){
   document.querySelectorAll('#page-progress .tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('progressToday').style.display = tab==='today' ? 'block' : 'none';
-  document.getElementById('progressWeek').style.display = tab==='week' ? 'block' : 'none';
-  document.getElementById('progressWeight').style.display = tab==='weight' ? 'block' : 'none';
+  document.getElementById('progressToday').style.display=tab==='today'?'block':'none';
+  document.getElementById('progressWeek').style.display=tab==='week'?'block':'none';
+  document.getElementById('progressWeight').style.display=tab==='weight'?'block':'none';
   if(tab==='weight') renderWeightLog();
   if(tab==='week') renderWeekChart();
 }
