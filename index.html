@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -556,21 +555,26 @@ select option{background:var(--bg2);}
       </div>
     </div>
     <div>
-      <!-- Barcode Scanner -->
-      <div class="card scanner-box" style="margin-bottom:16px;">
-        <div class="sec-title" style="padding:4px 0 10px;">📷 Barcode Scanner</div>
-        <div class="scanner-vp">
-          <div class="scanner-frame">
-            <div class="sf-inner">
-              <div class="scanner-laser" id="scannerLaser"></div>
-            </div>
-          </div>
-          <div class="scanner-hint" id="scannerHint">Tap "Scan Barcode" to activate</div>
-        </div>
-        <div class="scan-actions">
-          <button class="btn btn-primary" style="flex:1;" onclick="toggleScanner()">📷 Scan Barcode</button>
-          <button class="btn btn-ghost" onclick="showToast('Manual entry available above ↑')">✏️ Manual Entry</button>
-        </div>
+     <!-- Barcode Scanner -->
+<div class="card scanner-box" style="margin-bottom:16px;">
+  <div class="sec-title" style="padding:4px 0 10px;">📷 Barcode Scanner</div>
+  <div class="scanner-vp">
+    <div class="scanner-frame">
+      <div class="sf-inner">
+        <div class="scanner-laser" id="scannerLaser"></div>
+      </div>
+    </div>
+    <div class="scanner-hint" id="scannerHint">Tap "Scan Barcode" to activate</div>
+  </div>
+  
+  <!-- TU DODAJ TO -->
+  <div id="reader" style="width:100%; max-width:400px; margin:15px auto; display:none;"></div>
+  
+  <div class="scan-actions">
+    <button class="btn btn-primary" style="flex:1;" onclick="toggleScanner()">📷 Scan Barcode</button>
+    <button class="btn btn-ghost" onclick="showToast('Manual entry available above ↑')">✏️ Manual Entry</button>
+  </div>
+</div>
       </div>
       <!-- Quick add recent -->
       <div class="card" style="padding:0;overflow:hidden;">
@@ -1446,42 +1450,85 @@ function changeDate(dir){
   } else {state.meals={breakfast:[],lunch:[],dinner:[],snacks:[]};state.water=0;}
   save();renderAll();
 }
+// ==================== BARCODE SCANNER (Open Food Facts API) ====================
 
 function toggleScanner(){
-
-  if(!window.html5QrcodeScanner){
-    window.html5QrcodeScanner = new Html5QrcodeScanner(
-      "reader",
-      { fps: 10, qrbox: 250 }
-    );
-
-    window.html5QrcodeScanner.render(async (decodedText) => {
-
-      showToast("Scanning...");
-
-      const food = await getFoodFromBarcode(decodedText);
-
-      if(food){
-        showToast(`🍎 ${food.name} (${food.calories} kcal)`);
-        console.log(food);
-      } else {
-        showToast("Food not found ❌");
-      }
-
-      window.html5QrcodeScanner.clear().then(() => {
-        window.html5QrcodeScanner = null;
-        document.getElementById("reader").innerHTML = "";
-      });
-
-    });
-
-  } else {
+  const reader = document.getElementById("reader");
+  
+  if(window.html5QrcodeScanner){
     window.html5QrcodeScanner.clear().then(() => {
       window.html5QrcodeScanner = null;
-      document.getElementById("reader").innerHTML = "";
+      reader.style.display = "none";
     });
+    return;
   }
+
+  reader.style.display = "block";
+
+  window.html5QrcodeScanner = new Html5QrcodeScanner(
+    "reader",
+    { 
+      fps: 10, 
+      qrbox: { width: 250, height: 250 },
+      rememberLastUsedCamera: true 
+    },
+    false
+  );
+
+  window.html5QrcodeScanner.render(onScanSuccess, onScanError);
 }
+
+async function onScanSuccess(decodedText, decodedResult) {
+  console.log("Scanned barcode:", decodedText);
+  
+  showToast("🔍 Iščem v bazi Open Food Facts...", 'var(--orange)');
+
+  const food = await findFoodByBarcode(decodedText);
+  
+  if (food) {
+    showToast(`✅ ${food.name} (${food.cal} kcal)`, 'var(--green)');
+    
+    if (typeof quickAdd === "function") {
+      quickAdd(food.name);
+    } else {
+      showToast("Izdelek najden! Lahko ga dodaš ročno.", 'var(--green)');
+    }
+  } else {
+    showToast("❌ Izdelek ni najden v bazi", 'var(--orange)');
+  }
+
+  setTimeout(() => {
+    if (window.html5QrcodeScanner) {
+      window.html5QrcodeScanner.clear();
+      window.html5QrcodeScanner = null;
+      document.getElementById("reader").style.display = "none";
+    }
+  }, 1600);
+}
+
+function onScanError(error) {
+  // Tiho ignoriramo (normalno obnašanje)
+}
+
+async function findFoodByBarcode(barcode) {
+  try {
+    const response = await fetch(`https://world.openfoodfacts.org/api/v2/product/${barcode}.json`);
+    const data = await response.json();
+
+    if (data.status === 1 && data.product) {
+      const p = data.product;
+      return {
+        name: p.product_name || p.abbreviated_product_name || p.generic_name || "Unknown Product",
+        cal: Math.round(p.nutriments?.["energy-kcal_100g"] || p.nutriments?.energy_value / 4.184 || 0),
+      };
+    }
+  } catch (e) {
+    console.log("API napaka:", e);
+  }
+  return null;
+}
+
+// ==================== END OF SCANNER ====================
 
 function switchProgressTab(tab,el){
   document.querySelectorAll('#page-progress .tab').forEach(t=>t.classList.remove('active'));
@@ -1497,19 +1544,10 @@ function showToast(msg,color='var(--green)'){
   const t=document.getElementById('toast');t.textContent=msg;t.style.background=color;
   t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);
 }
-  <!-- SCANNER UI (TO MORA BITI V BODY) -->
-  <h2>Barcode Scanner</h2>
-  <button onclick="toggleScanner()">Scan food</button>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-  <div id="reader" style="width:300px; margin-top:10px;"></div>
-
-  <!-- JS LIBRARY -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
-
-  <!-- YOUR APP SCRIPT END -->
-  <script>
-    init();
-  </script>
-
+<script>
+  init();
+</script>
 </body>
 </html>
