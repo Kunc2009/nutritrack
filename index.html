@@ -1307,67 +1307,52 @@ window.onload=init;
 </script>
 <script src="html5-qrcode.min.js"></script>
 <script>
-// === BARCODE SCANNER - ULTRA DEBUG ===
-console.log("🔧 Scanner script loaded");
-
+// === MOBILE OPTIMIZED BARCODE SCANNER ===
 let html5QrcodeScanner = null;
 
-function toggleScanner() {
-    console.log("📍 toggleScanner() called");
-    
-    if (html5QrcodeScanner) {
-        console.log("Stopping scanner...");
-        stopScanner();
-    } else {
-        console.log("Starting scanner...");
-        startScanner();
-    }
-}
-
 async function startScanner() {
-    console.log("🚀 startScanner() started");
-    
-    const reader = document.getElementById("reader");
-    if (!reader) {
-        console.error("❌ Element #reader not found!");
-        return;
-    }
+    console.log("🚀 startScanner called from phone");
 
+    const reader = document.getElementById("reader");
     reader.style.display = "block";
     reader.innerHTML = "";
 
     try {
-        html5QrcodeScanner = new Html5Qrcode("reader", { verbose: true });
-        console.log("✅ Html5Qrcode object created");
+        html5QrcodeScanner = new Html5Qrcode("reader", { verbose: false });
 
         const cameras = await Html5Qrcode.getCameras();
-        console.log("📸 Found cameras:", cameras);
+        console.log("Cameras found:", cameras.length);
 
-        if (!cameras.length) {
-            showToast('No camera found', 'var(--red)');
-            return;
-        }
-
-        const backCamera = cameras[cameras.length - 1];
-        console.log("Using camera:", backCamera.label);
-
+        // Najboljša nastavitev za telefon
         await html5QrcodeScanner.start(
-            backCamera.id,
-            { fps: 20, qrbox: { width: 250, height: 250 } },
-            (decodedText) => {
-                console.log("🎉 BARCODE SUCCESS:", decodedText);
-                onScanSuccess(decodedText);
+            { facingMode: "environment" },   // forced back camera
+            { 
+                fps: 25,
+                qrbox: { width: 260, height: 260 },
+                aspectRatio: 1.0,
+                disableFlip: true
             },
-            (err) => {
-                // console.log("Scan err:", err); // zakomentirano
-            }
+            onScanSuccess,
+            (err) => {} 
         );
 
-        console.log("✅ Scanner SUCCESSFULLY STARTED!");
+        console.log("✅ Scanner started on phone");
+
+        // Scanning line
+        const scanLine = document.createElement('div');
+        scanLine.id = 'scanLine';
+        scanLine.style.cssText = `
+            position:absolute; left:0; top:50%; width:100%; height:4px;
+            background:linear-gradient(90deg,transparent,#6c63ff,#ec4899,transparent);
+            box-shadow:0 0 15px #6c63ff;
+            animation:scanAnim 1.3s linear infinite;
+            z-index:100;
+        `;
+        reader.appendChild(scanLine);
 
     } catch (e) {
-        console.error("❌ Error in startScanner:", e);
-        showToast('Error: ' + e.message, 'var(--red)');
+        console.error("Phone scanner error:", e);
+        showToast('Camera error: ' + e.message, 'var(--red)');
     }
 }
 
@@ -1381,14 +1366,47 @@ async function stopScanner() {
     reader.innerHTML = "";
 }
 
+function toggleScanner() {
+    if (html5QrcodeScanner) {
+        stopScanner();
+    } else {
+        startScanner();
+    }
+}
+
 async function onScanSuccess(decodedText) {
     await stopScanner();
-    showToast('✅ Barcode: ' + decodedText);
-    // tukaj lahko kasneje dodaš OpenFoodFacts klic
+    showToast('✅ Barcode: ' + decodedText, 'var(--green)');
+
+    // OpenFoodFacts call...
+    try {
+        const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
+        const data = await res.json();
+        if (data.status === 1 && data.product) {
+            const p = data.product;
+            selectedFood = {
+                name: p.product_name || 'Scanned Product',
+                emoji: '📦',
+                cat: 'Scanned',
+                cal: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
+                prot: p.nutriments?.proteins_100g || 0,
+                carbs: p.nutriments?.carbohydrates_100g || 0,
+                fat: p.nutriments?.fat_100g || 0,
+                fiber: p.nutriments?.fiber_100g || 0,
+                sugar: p.nutriments?.sugars_100g || 0,
+                sodium: Math.round((p.nutriments?.sodium_100g || 0) * 1000),
+            };
+            currentMeal = 'snacks';
+            document.getElementById('foodSearch').value = selectedFood.name;
+            document.getElementById('foodAmount').value = '100';
+            document.getElementById('foodUnit').value = 'g';
+            updatePreview();
+            document.getElementById('addFoodModal').classList.add('open');
+        }
+    } catch(e) {}
 }
 
 window.toggleScanner = toggleScanner;
-console.log("🔧 Scanner script fully initialized");
 </script>
 </body>
 </html>
