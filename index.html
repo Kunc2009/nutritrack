@@ -1315,7 +1315,7 @@ async function startScanner() {
   reader.style.position = "relative";
   reader.innerHTML = "";
 
-  html5Qrcode = new Html5Qrcode("reader");
+html5Qrcode = new Html5Qrcode("reader", { verbose: true });
   
   try {
     const cameras = await Html5Qrcode.getCameras();
@@ -1327,14 +1327,14 @@ async function startScanner() {
 
     const cameraId = cameras[cameras.length - 1].id;
 
-   await html5Qrcode.start(
-  cameraId,
-  { 
-    fps: 10, 
-    qrbox: { width: 250, height: 100 },
-  },
-  onScanSuccess,
-  () => {}
+    await html5Qrcode.start(
+      cameraId,
+      { 
+        fps: 25,
+        qrbox: { width: 400, height: 200 },
+      },
+      onScanSuccess,
+      () => {}
 );
     // dodaj črto šele AFTER .start()
     const scanLine = document.createElement('div');
