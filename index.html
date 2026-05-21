@@ -1337,8 +1337,9 @@ async function stopScanner() {
 }
 
 function toggleScanner() {
-  if (html5Qrcode) stopScanner();
+  if (html5Qrcode && html5Qrcode.isScanning) stopScanner();
   else startScanner();
+}
 }
 
 function onScanError(err) {}async function onScanSuccess(decodedText) {
