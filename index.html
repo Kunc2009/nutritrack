@@ -1312,20 +1312,8 @@ let html5Qrcode = null;
 async function startScanner() {
   const reader = document.getElementById("reader");
   reader.style.display = "block";
-  
-  // dodaj animirano črto
-  reader.innerHTML = `
-    <div id="scanLine" style="
-      position:absolute;
-      width:100%;
-      height:3px;
-      background:linear-gradient(90deg, transparent, #6c63ff, #ec4899, transparent);
-      animation: scanAnim 1.5s ease-in-out infinite;
-      z-index:999;
-      pointer-events:none;
-    "></div>
-  `;
   reader.style.position = "relative";
+  reader.innerHTML = "";
 
   html5Qrcode = new Html5Qrcode("reader");
   
@@ -1337,7 +1325,6 @@ async function startScanner() {
       return;
     }
 
-    // vzemi zadnjo kamero (navadno zadnja = back camera)
     const cameraId = cameras[cameras.length - 1].id;
 
     await html5Qrcode.start(
@@ -1358,6 +1345,22 @@ async function startScanner() {
       onScanSuccess,
       () => {}
     );
+
+    // dodaj črto šele AFTER .start()
+    const scanLine = document.createElement('div');
+    scanLine.id = 'scanLine';
+    scanLine.style.cssText = `
+      position:absolute;
+      width:100%;
+      height:3px;
+      background:linear-gradient(90deg, transparent, #6c63ff, #ec4899, transparent);
+      animation: scanAnim 1.5s ease-in-out infinite;
+      z-index:999;
+      pointer-events:none;
+      top:50%;
+    `;
+    reader.appendChild(scanLine);
+
   } catch(e) {
     showToast('Napaka kamere: ' + e, 'var(--red)');
     reader.style.display = "none";
