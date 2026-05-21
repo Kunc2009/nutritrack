@@ -404,11 +404,10 @@ body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e
     <div class="scanner-hint" id="scannerHint">Tap "Scan Barcode" to activate</div>
   </div>
   
-  <!-- TU DODAJ TO -->
-  <div id="reader" style="width:100%; max-width:400px; margin:15px auto; display:none;"></div>
-  
   <div class="scan-actions">
     <button class="btn btn-primary" style="flex:1;" onclick="toggleScanner()">📷 Scan Barcode</button>
+    <input type="file" id="barcodeFileInput" accept="image/*" capture="environment" 
+       style="display:none;" onchange="handleBarcodeImage(event)"/>
     <button class="btn btn-ghost" onclick="showToast('Manual entry available above ↑')">✏️ Manual Entry</button>
   </div>
 </div>
@@ -1305,165 +1304,43 @@ function switchProgressTab(tab, el) {
 }
 window.onload=init;
 </script>
-<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+<script src="https://unpkg.com/@ericblade/quagga2@1.2.6/dist/quagga.min.js"></script>
 <script>
-let zxingReader = null;
-let zxingStream = null;
-window._scanActive = false;
-
-async function startScanner() {
-    window._scanActive = true;
-
-    const overlay = document.createElement('div');
-    overlay.id = 'scannerOverlay';
-    overlay.style.cssText = `
-        position:fixed; top:0; left:0;
-        width:100vw; height:100vh;
-        background:#000; z-index:9999;
-        display:flex; align-items:center; justify-content:center;
-    `;
-
-    const video = document.createElement('video');
-    video.id = 'scannerVideo';
-    video.setAttribute('playsinline', 'true');
-    video.style.cssText = `
-        width:100vw; height:100vh;
-        object-fit:cover; position:absolute;
-        top:0; left:0;
-    `;
-
-    // Okvir
-    const frame = document.createElement('div');
-    frame.style.cssText = `
-        position:absolute;
-        width:78vw; height:35vw;
-        border:3px solid #6c63ff;
-        border-radius:12px;
-        box-shadow:0 0 0 9999px rgba(0,0,0,0.45);
-        z-index:10001;
-    `;
-
-    // Laser
-    const laser = document.createElement('div');
-    laser.style.cssText = `
-        position:absolute;
-        width:74vw; height:3px;
-        background:linear-gradient(90deg,transparent,#6c63ff,#ec4899,transparent);
-        box-shadow:0 0 10px #6c63ff;
-        z-index:10002;
-        animation:scanAnim 1.5s ease-in-out infinite;
-    `;
-
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕ Zapri';
-    closeBtn.style.cssText = `
-        position:absolute; top:24px; right:20px;
-        background:rgba(255,255,255,0.18);
-        color:#fff; border:none;
-        padding:10px 20px; border-radius:99px;
-        font-size:15px; font-weight:700;
-        z-index:10003; cursor:pointer;
-    `;
-    closeBtn.onclick = stopScanner;
-
-    const hint = document.createElement('div');
-    hint.textContent = 'Usmeri črtno kodo v okvir';
-    hint.style.cssText = `
-        position:absolute; bottom:50px;
-        color:#fff; font-size:15px; font-weight:600;
-        background:rgba(0,0,0,0.55);
-        padding:10px 22px; border-radius:99px;
-        z-index:10003; white-space:nowrap;
-    `;
-
-    overlay.appendChild(video);
-    overlay.appendChild(frame);
-    overlay.appendChild(laser);
-    overlay.appendChild(closeBtn);
-    overlay.appendChild(hint);
-    document.body.appendChild(overlay);
-
-    try {
-        const hints = new Map();
-        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
-            ZXing.BarcodeFormat.EAN_13,
-            ZXing.BarcodeFormat.EAN_8,
-            ZXing.BarcodeFormat.CODE_128,
-            ZXing.BarcodeFormat.UPC_A,
-            ZXing.BarcodeFormat.UPC_E,
-        ]);
-        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-
-        zxingReader = new ZXing.BrowserMultiFormatReader(hints, 500);
-
-        zxingStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: { exact: 'environment' },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-            }
-        });
-
-        video.srcObject = zxingStream;
-        await video.play();
-
-        video.srcObject = zxingStream;
-await video.play();
-
-// Namesto decodeFromStream uporabi decodeFromVideoElement loop
-zxingReader = new ZXing.BrowserMultiFormatReader(hints);
-
-async function scanLoop() {
-    if (!window._scanActive) return;
-    try {
-        const result = await zxingReader.decodeOnceFromStream(zxingStream, video);
-        if (result && window._scanActive) {
-            onScanSuccess(result.getText());
-        }
-    } catch(e) {
-        if (window._scanActive) {
-            setTimeout(scanLoop, 200);
-        }
-    }
-}
-scanLoop();
-
-    } catch(e) {
-        stopScanner();
-        showToast('Napaka kamere: ' + e.message, 'var(--red)');
-    }
-}
-
-async function stopScanner() {
-    window._scanActive = false;
-    if (zxingReader) {
-        try { zxingReader.reset(); } catch(e) {}
-        zxingReader = null;
-    }
-    if (zxingStream) {
-        zxingStream.getTracks().forEach(t => t.stop());
-        zxingStream = null;
-    }
-    const overlay = document.getElementById('scannerOverlay');
-    if (overlay) overlay.remove();
-}
-
 function toggleScanner() {
-    if (window._scanActive) stopScanner();
-    else startScanner();
+    document.getElementById('barcodeFileInput').click();
+}
+
+async function handleBarcodeImage(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    showToast('🔍 Analiziram sliko...', 'var(--accent)');
+    const url = URL.createObjectURL(file);
+
+    Quagga.decodeSingle({
+        decoder: {
+            readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'upc_reader', 'upc_e_reader']
+        },
+        locate: true,
+        src: url
+    }, async function(result) {
+        URL.revokeObjectURL(url);
+        event.target.value = '';
+
+        if (result && result.codeResult) {
+            await onScanSuccess(result.codeResult.code);
+        } else {
+            showToast('❌ Kode nisem našel. Poskusi znova.', 'var(--red)');
+        }
+    });
 }
 
 async function onScanSuccess(decodedText) {
-    if (!window._scanActive) return;
-    await stopScanner();
-
     if (navigator.vibrate) navigator.vibrate(100);
-
     try {
         showToast('🔍 Iščem...', 'var(--accent)');
         const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
         const data = await res.json();
-
         if (data.status === 1 && data.product?.product_name) {
             const p = data.product;
             selectedFood = {
