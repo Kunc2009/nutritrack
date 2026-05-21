@@ -1406,8 +1406,8 @@ async function onScanSuccess(decodedText) {
       document.getElementById('modalMealTitle').textContent = '+ Dodaj skenirano hrano';
       updatePreview();
       document.getElementById('addFoodModal').classList.add('open');
-    } else {
-      showToast('❌ Hrana ni najdena v bazi', 'var(--red)');
+      } else {
+        showToast('❌ Ni najdeno: ' + decodedText, 'var(--red)');
     }
   } catch(e) {
     showToast('API napaka: ' + e.message, 'var(--red)');
