@@ -1345,6 +1345,7 @@ async function handleBarcodeImage(event) {
         showToast('❌ Kode nisem našel. Poskusi znova.', 'var(--red)');
     }
 });
+}
 
 async function onScanSuccess(decodedText) {
     if (navigator.vibrate) navigator.vibrate(100);
