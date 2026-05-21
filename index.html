@@ -404,18 +404,11 @@ body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e
     <div class="scanner-hint" id="scannerHint">Tap "Scan Barcode" to activate</div>
   </div>
   
-  <div class="scan-actions">
-    <button class="btn btn-primary" style="flex:1;" onclick="toggleScanner()">📷 Scan Barcode</button>
-<div class="scan-actions">
+ <div class="scan-actions">
     <button class="btn btn-primary" style="flex:1;" onclick="document.getElementById('barcodeFileInput').click()">📷 Slikaj kodo</button>
     <button class="btn btn-ghost" style="flex:1;" onclick="document.getElementById('barcodeGallery').click()">🖼️ Iz galerije</button>
-    <input type="file" id="barcodeFileInput" accept="image/*"
-       style="display:none;" onchange="handleBarcodeImage(event)"/>
-<input type="file" id="barcodeGallery" accept="image/*" 
-       style="display:none;" onchange="handleBarcodeImage(event)"/>
-</div>
-       style="display:none;" onchange="handleBarcodeImage(event)"/>
-    <button class="btn btn-ghost" onclick="showToast('Manual entry available above ↑')">✏️ Manual Entry</button>
+    <input type="file" id="barcodeFileInput" accept="image/*" style="display:none;" onchange="handleBarcodeImage(event)"/>
+    <input type="file" id="barcodeGallery" accept="image/*" style="display:none;" onchange="handleBarcodeImage(event)"/>
   </div>
 </div>
       </div>
