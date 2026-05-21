@@ -1407,11 +1407,26 @@ async function startScanner() {
         video.srcObject = zxingStream;
         await video.play();
 
-        zxingReader.decodeFromStream(zxingStream, video, (result, err) => {
-            if (result) {
-                onScanSuccess(result.getText());
-            }
-        });
+        video.srcObject = zxingStream;
+await video.play();
+
+// Namesto decodeFromStream uporabi decodeFromVideoElement loop
+zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+
+async function scanLoop() {
+    if (!window._scanActive) return;
+    try {
+        const result = await zxingReader.decodeOnceFromStream(zxingStream, video);
+        if (result && window._scanActive) {
+            onScanSuccess(result.getText());
+        }
+    } catch(e) {
+        if (window._scanActive) {
+            setTimeout(scanLoop, 200);
+        }
+    }
+}
+scanLoop();
 
     } catch(e) {
         stopScanner();
