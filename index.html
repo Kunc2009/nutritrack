@@ -1314,44 +1314,57 @@ async function handleBarcodeImage(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    showToast('🔍 Analiziram sliko...', 'var(--accent)');
+    showToast('🔍 Procesiram sliko...', 'var(--accent)');
+
     const url = URL.createObjectURL(file);
 
-   Quagga.decodeSingle({
-    decoder: {
-        readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader'],
-        multiple: false
-    },
-    locate: true,
-    numOfWorkers: 0,
-    inputStream: {
-        size: 1920
-    },
-    src: url
-}, async function(result) {
-    URL.revokeObjectURL(url);
-    event.target.value = '';
+    Quagga.decodeSingle({
+        decoder: {
+            readers: [
+                'ean_reader', 
+                'ean_8_reader', 
+                'upc_reader', 
+                'upc_e_reader',
+                'code_128_reader',   // zelo pomembno za SLO izdelke
+                'code_39_reader'
+            ],
+            multiple: false
+        },
+        locate: true,
+        numOfWorkers: 0,
+        inputStream: {
+            size: 1920,
+            singleChannel: false
+        },
+        src: url
+    }, async function(result) {
+        URL.revokeObjectURL(url);
+        event.target.value = '';
 
-    if (result && result.codeResult && result.codeResult.startInfo?.error < 0.1) {
-        await onScanSuccess(result.codeResult.code);
-    } else {
-        showToast('❌ Kode nisem našel. Poskusi znova.', 'var(--red)');
-    }
-});
+        if (result && result.codeResult && result.codeResult.code) {
+            console.log("✅ Barcode najden:", result.codeResult.code);
+            await onScanSuccess(result.codeResult.code);
+        } else {
+            console.log("❌ Quagga result:", result);
+            showToast('❌ Kode nisem našel.<br>Poskusi z boljšo osvetlitvijo ali bližje.', 'var(--red)');
+        }
+    });
 }
-
 async function onScanSuccess(decodedText) {
     if (navigator.vibrate) navigator.vibrate(100);
+    showToast('🔍 Iščem v bazi...', 'var(--accent)');
+
     try {
-        showToast('🔍 Iščem...', 'var(--accent)');
         const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
         const data = await res.json();
+
         if (data.status === 1 && data.product?.product_name) {
             const p = data.product;
             selectedFood = {
                 name: p.product_name,
-                emoji: '📦', cat: 'Scanned',
-                cal: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
+                emoji: '📦',
+                cat: 'Scanned',
+                cal: Math.round(p.nutriments?.['energy-kcal_100g'] || (p.nutriments?.energy_100g ? p.nutriments.energy_100g / 4.184 : 0)),
                 prot: parseFloat(p.nutriments?.proteins_100g || 0),
                 carbs: parseFloat(p.nutriments?.carbohydrates_100g || 0),
                 fat: parseFloat(p.nutriments?.fat_100g || 0),
@@ -1359,12 +1372,13 @@ async function onScanSuccess(decodedText) {
                 sugar: parseFloat(p.nutriments?.sugars_100g || 0),
                 sodium: Math.round((p.nutriments?.sodium_100g || 0) * 1000),
             };
-            showToast('✅ ' + selectedFood.name);
+            showToast(`✅ ${selectedFood.name}`, 'var(--green)');
             openFoodModal();
         } else {
             openManualEntryModal();
         }
     } catch(e) {
+        console.error(e);
         openManualEntryModal();
     }
 }
