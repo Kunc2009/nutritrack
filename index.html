@@ -1305,44 +1305,50 @@ function switchProgressTab(tab, el) {
 }
 window.onload=init;
 </script>
-<!-- Place this right before </body> -->
 <script src="html5-qrcode.min.js"></script>
 <script>
 // Barcode Scanner
 let html5QrcodeScanner = null;
+let currentCameraId = null;   // shranimo izbrano kamero
 
 async function startScanner() {
     const reader = document.getElementById("reader");
     reader.style.display = "block";
-    reader.innerHTML = ""; // clear previous
+    reader.innerHTML = "";
 
     html5QrcodeScanner = new Html5Qrcode("reader");
 
     try {
         const cameras = await Html5Qrcode.getCameras();
         if (!cameras.length) {
-            showToast('No camera detected', 'var(--red)');
+            showToast('No camera found', 'var(--red)');
             return;
         }
 
-        const cameraId = cameras[cameras.length - 1].id;
+        // Najprej poskusimo BACK kamero (environment)
+        let cameraToUse = cameras.find(cam => 
+            cam.label.toLowerCase().includes("back") || 
+            cam.label.toLowerCase().includes("rear") ||
+            cam.label.toLowerCase().includes("environment")
+        );
+
+        // Če ni back kamere, vzamemo zadnjo (ponavadi je back)
+        if (!cameraToUse) {
+            cameraToUse = cameras[cameras.length - 1];
+        }
+
+        currentCameraId = cameraToUse.id;
 
         await html5QrcodeScanner.start(
-            cameraId,
+            currentCameraId,
             { 
-                fps: 20, 
+                fps: 20,
                 qrbox: { width: 280, height: 280 },
                 aspectRatio: 1.0,
-                formatsToSupport: [
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                ]
+                facingMode: "environment"   // <-- pomembno!
             },
             onScanSuccess,
-            () => {} // silent error callback
+            () => {} 
         );
 
         // Scanning line
@@ -1357,9 +1363,11 @@ async function startScanner() {
         `;
         reader.appendChild(scanLine);
 
+        showToast('📷 Back camera started', 'var(--green)');
+
     } catch (e) {
         console.error(e);
-        showToast('Camera access failed: ' + e.message, 'var(--red)');
+        showToast('Camera error: ' + e.message, 'var(--red)');
         stopScanner();
     }
 }
@@ -1387,6 +1395,7 @@ async function onScanSuccess(decodedText) {
     await stopScanner();
     showToast('✅ Barcode scanned: ' + decodedText);
 
+    // ... (ostanek tvoje funkcije onScanSuccess ostane enak)
     try {
         const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
         const data = await res.json();
@@ -1413,10 +1422,10 @@ async function onScanSuccess(decodedText) {
             updatePreview();
             document.getElementById('addFoodModal').classList.add('open');
         } else {
-            showToast('Product not found in OpenFoodFacts', 'var(--orange)');
+            showToast('Product not found', 'var(--orange)');
         }
     } catch (e) {
-        showToast('Failed to fetch nutrition info', 'var(--red)');
+        showToast('Failed to fetch product data', 'var(--red)');
     }
 }
 
