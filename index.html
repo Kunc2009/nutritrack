@@ -1305,7 +1305,7 @@ function switchProgressTab(tab, el) {
 }
 window.onload=init;
 </script>
-<script src="html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 // === MOBILE OPTIMIZED BARCODE SCANNER ===
 let html5QrcodeScanner = null;
@@ -1376,16 +1376,14 @@ function toggleScanner() {
 
 async function onScanSuccess(decodedText) {
     await stopScanner();
-    showToast('✅ Barcode: ' + decodedText, 'var(--green)');
 
-    // OpenFoodFacts call...
     try {
         const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
         const data = await res.json();
-        if (data.status === 1 && data.product) {
+        if (data.status === 1 && data.product && data.product.product_name) {
             const p = data.product;
             selectedFood = {
-                name: p.product_name || 'Scanned Product',
+                name: p.product_name,
                 emoji: '📦',
                 cat: 'Scanned',
                 cal: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
@@ -1396,17 +1394,38 @@ async function onScanSuccess(decodedText) {
                 sugar: p.nutriments?.sugars_100g || 0,
                 sodium: Math.round((p.nutriments?.sodium_100g || 0) * 1000),
             };
-            currentMeal = 'snacks';
-            document.getElementById('foodSearch').value = selectedFood.name;
-            document.getElementById('foodAmount').value = '100';
-            document.getElementById('foodUnit').value = 'g';
-            updatePreview();
-            document.getElementById('addFoodModal').classList.add('open');
+            showToast('✅ Najden: ' + selectedFood.name);
+        } else {
+            // Produkt ni znan — vprašaj za ime
+            const ime = prompt('Produkt ni najden v bazi.\nVnesi ime izdelka:');
+            if (!ime) return;
+            selectedFood = {
+                name: ime,
+                emoji: '📦',
+                cat: 'Scanned',
+                cal: 0, prot: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0,
+            };
+            showToast('📦 Nov produkt: ' + ime);
         }
-    } catch(e) {}
-}
+    } catch(e) {
+        const ime = prompt('Napaka pri iskanju.\nVnesi ime izdelka ročno:');
+        if (!ime) return;
+        selectedFood = {
+            name: ime,
+            emoji: '📦',
+            cat: 'Scanned',
+            cal: 0, prot: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0,
+        };
+    }
 
-window.toggleScanner = toggleScanner;
+    currentMeal = 'snacks';
+    document.getElementById('foodSearch').value = selectedFood.name;
+    document.getElementById('foodAmount').value = '100';
+    document.getElementById('foodUnit').value = 'g';
+    updatePreview();
+    document.getElementById('modalMealTitle').textContent = '+ Dodaj skenirani produkt';
+    document.getElementById('addFoodModal').classList.add('open');
+}
 </script>
 </body>
 </html>
