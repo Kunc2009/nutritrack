@@ -1322,7 +1322,7 @@ async function startScanner() {
       html5Qrcode = null;
       return;
     }
-    const cameraId = cameras[0].id;
+    const cameraId = cameras[cameras.length - 1].id;
     await html5Qrcode.start(
       cameraId,
       { fps: 25, qrbox: { width: 400, height: 200 } },
