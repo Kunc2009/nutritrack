@@ -1305,127 +1305,155 @@ function switchProgressTab(tab, el) {
 }
 window.onload=init;
 </script>
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
 <script>
-let html5QrcodeScanner = null;
+let zxingReader = null;
+let zxingStream = null;
+window._scanActive = false;
 
 async function startScanner() {
-    // Naredi fullscreen overlay ločeno
+    window._scanActive = true;
+
     const overlay = document.createElement('div');
     overlay.id = 'scannerOverlay';
     overlay.style.cssText = `
         position:fixed; top:0; left:0;
         width:100vw; height:100vh;
         background:#000; z-index:9999;
-        display:flex; flex-direction:column;
-        align-items:center; justify-content:center;
+        display:flex; align-items:center; justify-content:center;
     `;
 
-    // Zapri gumb
+    const video = document.createElement('video');
+    video.id = 'scannerVideo';
+    video.setAttribute('playsinline', 'true');
+    video.style.cssText = `
+        width:100vw; height:100vh;
+        object-fit:cover; position:absolute;
+        top:0; left:0;
+    `;
+
+    // Okvir
+    const frame = document.createElement('div');
+    frame.style.cssText = `
+        position:absolute;
+        width:78vw; height:35vw;
+        border:3px solid #6c63ff;
+        border-radius:12px;
+        box-shadow:0 0 0 9999px rgba(0,0,0,0.45);
+        z-index:10001;
+    `;
+
+    // Laser
+    const laser = document.createElement('div');
+    laser.style.cssText = `
+        position:absolute;
+        width:74vw; height:3px;
+        background:linear-gradient(90deg,transparent,#6c63ff,#ec4899,transparent);
+        box-shadow:0 0 10px #6c63ff;
+        z-index:10002;
+        animation:scanAnim 1.5s ease-in-out infinite;
+    `;
+
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '✕ Zapri';
     closeBtn.style.cssText = `
-        position:absolute; top:16px; right:16px;
-        background:rgba(255,255,255,0.15);
+        position:absolute; top:24px; right:20px;
+        background:rgba(255,255,255,0.18);
         color:#fff; border:none;
-        padding:10px 18px; border-radius:99px;
-        font-size:15px; font-weight:700; cursor:pointer;
+        padding:10px 20px; border-radius:99px;
+        font-size:15px; font-weight:700;
+        z-index:10003; cursor:pointer;
     `;
     closeBtn.onclick = stopScanner;
 
-    // Navodilo
     const hint = document.createElement('div');
-    hint.textContent = 'Usmeri kamero na črtno kodo';
+    hint.textContent = 'Usmeri črtno kodo v okvir';
     hint.style.cssText = `
-        position:absolute; bottom:40px; left:50%;
-        transform:translateX(-50%);
+        position:absolute; bottom:50px;
         color:#fff; font-size:15px; font-weight:600;
-        background:rgba(0,0,0,0.5);
-        padding:10px 20px; border-radius:99px;
-        white-space:nowrap;
+        background:rgba(0,0,0,0.55);
+        padding:10px 22px; border-radius:99px;
+        z-index:10003; white-space:nowrap;
     `;
 
-    // Reader div znotraj overlaya
-    const readerInner = document.createElement('div');
-    readerInner.id = 'readerInner';
-    readerInner.style.cssText = `
-        width:100vw; height:100vh;
-    `;
-
+    overlay.appendChild(video);
+    overlay.appendChild(frame);
+    overlay.appendChild(laser);
     overlay.appendChild(closeBtn);
     overlay.appendChild(hint);
-    overlay.appendChild(readerInner);
     document.body.appendChild(overlay);
 
     try {
-        html5QrcodeScanner = new Html5Qrcode("readerInner", {
-            verbose: false,
-            formatsToSupport: [
-                Html5QrcodeSupportedFormats.EAN_13,
-                Html5QrcodeSupportedFormats.EAN_8,
-                Html5QrcodeSupportedFormats.CODE_128,
-                Html5QrcodeSupportedFormats.CODE_39,
-                Html5QrcodeSupportedFormats.UPC_A,
-                Html5QrcodeSupportedFormats.UPC_E,
-                Html5QrcodeSupportedFormats.QR_CODE,
-            ]
+        const hints = new Map();
+        hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+            ZXing.BarcodeFormat.EAN_13,
+            ZXing.BarcodeFormat.EAN_8,
+            ZXing.BarcodeFormat.CODE_128,
+            ZXing.BarcodeFormat.UPC_A,
+            ZXing.BarcodeFormat.UPC_E,
+        ]);
+        hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+
+        zxingReader = new ZXing.BrowserMultiFormatReader(hints, 500);
+
+        zxingStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: { exact: 'environment' },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+            }
         });
 
-        const boxW = Math.round(window.innerWidth * 0.85);
-        const boxH = Math.round(boxW * 0.45);
+        video.srcObject = zxingStream;
+        await video.play();
 
-        await html5QrcodeScanner.start(
-            { facingMode: "environment" },
-            {
-                fps: 15,
-                qrbox: { width: boxW, height: boxH },
-                aspectRatio: window.innerHeight / window.innerWidth,
-                disableFlip: false,
-            },
-            onScanSuccess,
-            () => {}
-        );
+        zxingReader.decodeFromStream(zxingStream, video, (result, err) => {
+            if (result) {
+                onScanSuccess(result.getText());
+            }
+        });
 
-    } catch (e) {
-        document.body.removeChild(overlay);
+    } catch(e) {
+        stopScanner();
         showToast('Napaka kamere: ' + e.message, 'var(--red)');
     }
 }
 
 async function stopScanner() {
-    if (html5QrcodeScanner) {
-        try { await html5QrcodeScanner.stop(); } catch(e) {}
-        html5QrcodeScanner = null;
+    window._scanActive = false;
+    if (zxingReader) {
+        try { zxingReader.reset(); } catch(e) {}
+        zxingReader = null;
+    }
+    if (zxingStream) {
+        zxingStream.getTracks().forEach(t => t.stop());
+        zxingStream = null;
     }
     const overlay = document.getElementById('scannerOverlay');
-    if (overlay) document.body.removeChild(overlay);
+    if (overlay) overlay.remove();
 }
+
 function toggleScanner() {
-    if (html5QrcodeScanner) {
-        stopScanner();
-    } else {
-        startScanner();
-    }
+    if (window._scanActive) stopScanner();
+    else startScanner();
 }
 
 async function onScanSuccess(decodedText) {
+    if (!window._scanActive) return;
     await stopScanner();
 
-    // Vibracija na telefonu
     if (navigator.vibrate) navigator.vibrate(100);
 
     try {
-        showToast('🔍 Iščem produkt...', 'var(--accent)');
-
+        showToast('🔍 Iščem...', 'var(--accent)');
         const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
         const data = await res.json();
 
-        if (data.status === 1 && data.product && data.product.product_name) {
+        if (data.status === 1 && data.product?.product_name) {
             const p = data.product;
             selectedFood = {
                 name: p.product_name,
-                emoji: '📦',
-                cat: 'Scanned',
+                emoji: '📦', cat: 'Scanned',
                 cal: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
                 prot: parseFloat(p.nutriments?.proteins_100g || 0),
                 carbs: parseFloat(p.nutriments?.carbohydrates_100g || 0),
@@ -1434,9 +1462,9 @@ async function onScanSuccess(decodedText) {
                 sugar: parseFloat(p.nutriments?.sugars_100g || 0),
                 sodium: Math.round((p.nutriments?.sodium_100g || 0) * 1000),
             };
-            showToast('✅ Najden: ' + selectedFood.name);
+            showToast('✅ ' + selectedFood.name);
         } else {
-            const ime = prompt('Produkt ni v bazi.\nVnesi ime izdelka:');
+            const ime = prompt('Produkt ni v bazi.\nVnesi ime:');
             if (!ime) return;
             selectedFood = {
                 name: ime, emoji: '📦', cat: 'Scanned',
@@ -1444,7 +1472,7 @@ async function onScanSuccess(decodedText) {
             };
         }
     } catch(e) {
-        const ime = prompt('Napaka pri iskanju.\nVnesi ime ročno:');
+        const ime = prompt('Napaka.\nVnesi ime ročno:');
         if (!ime) return;
         selectedFood = {
             name: ime, emoji: '📦', cat: 'Scanned',
