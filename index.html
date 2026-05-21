@@ -1314,30 +1314,37 @@ async function handleBarcodeImage(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    showToast('🔍 Nalagam sliko...', 'var(--accent)');
+    showToast('📸 Slika naložena. Odpiram vnos...', 'var(--accent)');
 
-    // Takoj pokažemo manual entry, ker Quagga preveč visi
+    // Takoj odpremo ročni vnos (najbolj zanesljivo)
     setTimeout(() => {
-        showToast('📝 Quagga ima težave.<br>Prosim vnesi podatke ročno.', 'var(--orange)');
         openManualEntryModal();
-    }, 1200);
+    }, 800);
 
-    // Še vedno poskusimo z Quaggo v ozadju (če slučajno uspe)
+    // Poskusimo še z Quaggo v ozadju (ne blokira nič)
     const url = URL.createObjectURL(file);
     
-    Quagga.decodeSingle({
-        decoder: { readers: ['ean_reader', 'code_128_reader', 'upc_reader'] },
-        locate: true,
-        numOfWorkers: 0,
-        inputStream: { size: 1400 },
-        src: url
-    }, async (result) => {
+    try {
+        Quagga.decodeSingle({
+            decoder: {
+                readers: ['ean_reader', 'code_128_reader', 'upc_reader', 'ean_8_reader']
+            },
+            locate: true,
+            numOfWorkers: 0,
+            inputStream: { size: 1500 },
+            src: url
+        }, async (result) => {
+            URL.revokeObjectURL(url);
+            
+            if (result && result.codeResult && result.codeResult.code) {
+                console.log("✅ Quagga je našel kodo:", result.codeResult.code);
+                showToast('✅ Koda najdena!', 'var(--green)');
+                await onScanSuccess(result.codeResult.code);
+            }
+        });
+    } catch(e) {
         URL.revokeObjectURL(url);
-        if (result && result.codeResult && result.codeResult.code) {
-            console.log("✅ Uspešno:", result.codeResult.code);
-            await onScanSuccess(result.codeResult.code);
-        }
-    });
+    }
 }
 async function onScanSuccess(decodedText) {
     if (navigator.vibrate) navigator.vibrate(100);
