@@ -406,7 +406,7 @@ body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e
   
   <div class="scan-actions">
     <button class="btn btn-primary" style="flex:1;" onclick="toggleScanner()">📷 Scan Barcode</button>
-    <input type="file" id="barcodeFileInput" accept="image/*" capture="environment" 
+<input type="file" id="barcodeFileInput" accept="image/*" capture="camera"
        style="display:none;" onchange="handleBarcodeImage(event)"/>
     <button class="btn btn-ghost" onclick="showToast('Manual entry available above ↑')">✏️ Manual Entry</button>
   </div>
@@ -1317,23 +1317,27 @@ async function handleBarcodeImage(event) {
     showToast('🔍 Analiziram sliko...', 'var(--accent)');
     const url = URL.createObjectURL(file);
 
-    Quagga.decodeSingle({
-        decoder: {
-            readers: ['ean_reader', 'ean_8_reader', 'code_128_reader', 'upc_reader', 'upc_e_reader']
-        },
-        locate: true,
-        src: url
-    }, async function(result) {
-        URL.revokeObjectURL(url);
-        event.target.value = '';
+   Quagga.decodeSingle({
+    decoder: {
+        readers: ['ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader'],
+        multiple: false
+    },
+    locate: true,
+    numOfWorkers: 0,
+    inputStream: {
+        size: 1920
+    },
+    src: url
+}, async function(result) {
+    URL.revokeObjectURL(url);
+    event.target.value = '';
 
-        if (result && result.codeResult) {
-            await onScanSuccess(result.codeResult.code);
-        } else {
-            showToast('❌ Kode nisem našel. Poskusi znova.', 'var(--red)');
-        }
-    });
-}
+    if (result && result.codeResult && result.codeResult.startInfo?.error < 0.1) {
+        await onScanSuccess(result.codeResult.code);
+    } else {
+        showToast('❌ Kode nisem našel. Poskusi znova.', 'var(--red)');
+    }
+});
 
 async function onScanSuccess(decodedText) {
     if (navigator.vibrate) navigator.vibrate(100);
