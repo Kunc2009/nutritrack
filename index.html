@@ -1340,7 +1340,7 @@ function toggleScanner() {
   if (html5Qrcode) {
     stopScanner();
   } else {
-    setTimeout(startScanner, 300);
+    startScanner();
   }
 }
 function onScanError(err) {}async function onScanSuccess(decodedText) {
