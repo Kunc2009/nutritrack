@@ -1303,34 +1303,45 @@ window.onload=init;
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" crossorigin="anonymous"></script>
 <script>
-let html5QrcodeScanner = null;
+let html5Qrcode = null;
 let scanningLocked = false;
 
-function startScanner() {
+async function startScanner() {
   const reader = document.getElementById("reader");
   if (!reader) return;
   reader.style.display = "block";
-  html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false);
-  html5QrcodeScanner.render(onScanSuccess, onScanError);
+  
+  html5Qrcode = new Html5Qrcode("reader");
+  
+  try {
+    await html5Qrcode.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: 250 },
+      onScanSuccess,
+      onScanError
+    );
+  } catch(e) {
+    showToast('Camera error: ' + e, 'var(--red)');
+    reader.style.display = "none";
+  }
 }
 
 async function stopScanner() {
-  if (html5QrcodeScanner) {
-    try { await html5QrcodeScanner.clear(); } catch(e) {}
-    html5QrcodeScanner = null;
+  if (html5Qrcode) {
+    try { await html5Qrcode.stop(); } catch(e) {}
+    try { await html5Qrcode.clear(); } catch(e) {}
+    html5Qrcode = null;
   }
   const reader = document.getElementById("reader");
   if (reader) { reader.innerHTML = ""; reader.style.display = "none"; }
 }
 
 function toggleScanner() {
-  if (html5QrcodeScanner) stopScanner();
+  if (html5Qrcode) stopScanner();
   else startScanner();
 }
 
-function onScanError(err) {}
-
-async function onScanSuccess(decodedText) {
+function onScanError(err) {}async function onScanSuccess(decodedText) {
   if (scanningLocked) return;
   scanningLocked = true;
   await stopScanner();
