@@ -1317,8 +1317,21 @@ async function startScanner() {
   html5Qrcode = new Html5Qrcode("reader", { verbose: true });
   
   try {
+    const cameras = await Html5Qrcode.getCameras();
+    console.log("Kamere:", JSON.stringify(cameras));
+    
+    if (!cameras || cameras.length === 0) {
+      showToast('Ni najdene kamere', 'var(--red)');
+      html5Qrcode = null;
+      return;
+    }
+
+    // probaj prvo kamero namesto zadnje
+    const cameraId = cameras[0].id;
+    console.log("Uporabljena kamera:", cameraId);
+
     await html5Qrcode.start(
-      { facingMode: "environment" },
+      cameraId,
       { 
         fps: 25,
         qrbox: { width: 400, height: 200 },
@@ -1347,7 +1360,6 @@ async function startScanner() {
     html5Qrcode = null;
   }
 }
-
     const cameraId = cameras[cameras.length - 1].id;
 
     await html5Qrcode.start(
