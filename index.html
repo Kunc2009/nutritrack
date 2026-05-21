@@ -1483,7 +1483,6 @@ function openFoodModal() {
 }
 
 function openManualEntryModal() {
-    // Ustvari modal za ročni vnos
     const existing = document.getElementById('manualEntryModal');
     if (existing) existing.remove();
 
@@ -1503,7 +1502,6 @@ function openManualEntryModal() {
                 <button onclick="document.getElementById('manualEntryModal').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
             </div>
             <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Produkt ni bil najden v bazi. Vnesi ime in makrote ročno.</div>
-
             <div class="field"><label>Ime izdelka</label><input type="text" id="meNome" placeholder="npr. Protein Bar XY"/></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                 <div class="field" style="margin-bottom:10px;"><label>Kalorije (kcal/100g)</label><input type="number" id="meCal" placeholder="0"/></div>
@@ -1514,7 +1512,6 @@ function openManualEntryModal() {
                 <div class="field" style="margin-bottom:10px;"><label>Sladkorji (g)</label><input type="number" id="meSugar" placeholder="0"/></div>
                 <div class="field" style="margin-bottom:0;grid-column:1/-1;"><label>Natrij (mg)</label><input type="number" id="meSodium" placeholder="0"/></div>
             </div>
-
             <div style="display:flex;gap:10px;margin-top:16px;">
                 <button onclick="confirmManualEntry()" class="btn btn-primary" style="flex:1;">✅ Dodaj v log</button>
                 <button onclick="confirmManualEntry(true)" class="btn btn-ghost">💾 Shrani + Dodaj</button>
@@ -1525,7 +1522,7 @@ function openManualEntryModal() {
     setTimeout(() => document.getElementById('meNome')?.focus(), 300);
 }
 
-function confirmManualEntry(save = false) {
+function confirmManualEntry(saveFood = false) {
     const name = document.getElementById('meNome')?.value.trim();
     if (!name) { showToast('Vnesi ime izdelka', 'var(--red)'); return; }
 
@@ -1541,8 +1538,7 @@ function confirmManualEntry(save = false) {
         sodium: parseFloat(document.getElementById('meSodium')?.value) || 0,
     };
 
-    // Shrani kot custom food za naslednjič
-    if (save) {
+    if (saveFood) {
         state.customFoods.push({...selectedFood});
         save();
         showToast('💾 Shranjeno v My Custom Foods!');
@@ -1551,6 +1547,8 @@ function confirmManualEntry(save = false) {
     document.getElementById('manualEntryModal')?.remove();
     openFoodModal();
 }
+
+window.toggleScanner = toggleScanner;
 </script>
 </body>
 </html>
