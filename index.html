@@ -1325,7 +1325,18 @@ async function startScanner() {
     const cameraId = cameras[cameras.length - 1].id;
     await html5Qrcode.start(
       cameraId,
-      { fps: 25, qrbox: { width: 400, height: 200 } },
+      { 
+  fps: 25, 
+  qrbox: { width: 400, height: 200 },
+  formatsToSupport: [
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+    Html5QrcodeSupportedFormats.UPC_A,
+    Html5QrcodeSupportedFormats.UPC_E,
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+  ]
+},
       onScanSuccess,
       (err) => { console.log("scan error:", err); }
     );
