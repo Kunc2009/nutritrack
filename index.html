@@ -1314,39 +1314,42 @@ async function handleBarcodeImage(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    showToast('🔍 Procesiram sliko...', 'var(--accent)');
+    showToast('🔍 Procesiram sliko... (lahko traja 2-3 sek)', 'var(--accent)');
 
     const url = URL.createObjectURL(file);
 
     Quagga.decodeSingle({
         decoder: {
             readers: [
-                'ean_reader', 
-                'ean_8_reader', 
-                'upc_reader', 
+                'ean_reader',
+                'ean_8_reader',
+                'upc_reader',
                 'upc_e_reader',
-                'code_128_reader',   // zelo pomembno za SLO izdelke
-                'code_39_reader'
+                'code_128_reader',
+                'code_39_reader',
+                'itf_reader'
             ],
             multiple: false
         },
         locate: true,
         numOfWorkers: 0,
         inputStream: {
-            size: 1920,
-            singleChannel: false
+            size: 2400,           // še večja ločljivost
+            singleChannel: false,
+            area: { top: "10%", right: "10%", bottom: "10%", left: "10%" }
         },
-        src: url
+        src: url,
+        debug: false
     }, async function(result) {
         URL.revokeObjectURL(url);
         event.target.value = '';
 
         if (result && result.codeResult && result.codeResult.code) {
-            console.log("✅ Barcode najden:", result.codeResult.code);
+            console.log("✅ Uspešno najdena koda:", result.codeResult.code);
             await onScanSuccess(result.codeResult.code);
         } else {
-            console.log("❌ Quagga result:", result);
-            showToast('❌ Kode nisem našel.<br>Poskusi z boljšo osvetlitvijo ali bližje.', 'var(--red)');
+            console.log("Quagga failed:", result);
+            showToast('❌ Še vedno nisem našel kode.<br><small>Poskusi:</small><br>• Boljše osvetlitev<br>• Ravna slika brez kota<br>• Bližje (cel barcode v kadru)', 'var(--red)');
         }
     });
 }
