@@ -3,120 +3,177 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Scanner</title>
-
+<title>NutriTrack</title>
 <style>
-body { background:#0c0c11; color:white; font-family:Arial; text-align:center; }
-#reader { width:100%; max-width:360px; margin:20px auto; }
-video { width:100%; border-radius:16px; }
-button {
-  padding:12px 18px;
-  border:none;
-  border-radius:10px;
-  background:linear-gradient(135deg,#6c63ff,#ec4899);
-  color:white;
-  font-weight:700;
-  cursor:pointer;
-}
-#result { margin-top:20px; font-size:18px; font-weight:700; }
+:root{--bg:#0c0c11;--bg2:#13131a;--bg3:#1e1e2e;--border:#2a2a3e;--text:#f0f0f8;--muted:#7070a0;--accent:#6c63ff;--blue:#3b82f6;--orange:#f59e0b;--pink:#ec4899;--green:#10b981;--teal:#14b8a6;--red:#ef4444;--grad:linear-gradient(135deg,#6c63ff,#ec4899);--r:14px;--rsm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;overflow-x:hidden}
+body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e;--muted:#6060a0}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:60px;background:var(--bg2);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--text)}
+.logo-icon{font-size:24px}
+.logo-text{font-size:18px;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar-nav{display:flex;gap:4px}
+.topbar-nav a{padding:6px 12px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);transition:.2s}
+.topbar-nav a:hover,.topbar-nav a.active{background:var(--bg3);color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.streak-pill{background:var(--bg3);border:1px solid var(--border);padding:4px 12px;border-radius:99px;font-size:13px;font-weight:700}
+.icon-btn{width:36px;height:36px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.icon-btn svg{width:18px;height:18px;fill:none;stroke:var(--text);stroke-width:2;stroke-linecap:round}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:4px}
+.hamburger span{display:block;width:22px;height:2px;background:var(--text);border-radius:2px}
+.layout{display:flex;min-height:calc(100vh - 60px)}
+.sidebar{width:260px;background:var(--bg2);border-right:1px solid var(--border);padding:16px 12px;overflow-y:auto;flex-shrink:0}
+.sidebar-date-widget{background:var(--bg3);border-radius:var(--r);padding:14px;margin-bottom:16px}
+.date-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.date-nav-btn{width:28px;height:28px;border-radius:6px;background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;font-weight:700;color:var(--muted)}
+.sidebar-section{margin-bottom:8px}
+.sidebar-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;padding:4px 8px 6px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600;color:var(--muted);transition:.15s;text-decoration:none}
+.sidebar-item:hover,.sidebar-item.active{background:var(--bg3);color:var(--text)}
+.sidebar-item svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;flex-shrink:0}
+.sidebar-badge{margin-left:auto;background:var(--accent);color:#fff;font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px}
+.sidebar-divider{height:1px;background:var(--border);margin:10px 0}
+.main{flex:1;padding:24px;overflow-y:auto;max-width:1400px}
+.page{display:none}.page.active{display:block}
+.page-header{margin-bottom:24px}
+.page-header h2{font-size:26px;font-weight:900}
+.page-header p{color:var(--muted);margin-top:4px}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px}
+.card-hover{transition:.2s}.card-hover:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.sec-title{font-size:15px;font-weight:800;margin-bottom:12px}
+.home-grid{display:grid;grid-template-columns:320px 1fr;gap:20px}
+.home-right{display:flex;flex-direction:column;gap:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center}
+.stat-icon{font-size:24px;margin-bottom:6px}
+.stat-val{font-size:22px;font-weight:900}
+.stat-label{font-size:12px;color:var(--muted);margin-top:2px;font-weight:600}
+.stat-sub{font-size:11px;margin-top:2px}
+.ring-wrap{position:relative;display:inline-block;margin-bottom:16px}
+.ring-svg{display:block}
+.ring-bg{fill:none;stroke:var(--bg3);stroke-width:14}
+.ring-fill{fill:none;stroke-width:14;stroke-linecap:round;transform:rotate(-90deg);transform-origin:100px 100px;transition:stroke-dashoffset 1s}
+.ring-center{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center}
+.ring-cal{font-size:32px;font-weight:900}
+.ring-sub{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em}
+.ring-remain{font-size:12px;margin-top:2px;font-weight:600}
+.macro-pill{background:var(--bg3);border-radius:var(--rsm);padding:10px 8px;text-align:center}
+.macro-pill .val{font-size:16px;font-weight:800}
+.macro-pill .lbl{font-size:11px;color:var(--muted);margin:2px 0}
+.macro-pill .bar{height:4px;background:var(--bg);border-radius:99px;overflow:hidden}
+.macro-pill .bar-fill{height:100%;border-radius:99px;transition:width .8s}
+.water-cups{display:flex;gap:6px;flex-wrap:wrap}
+.water-cup{width:36px;height:36px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;transition:.2s;filter:grayscale(1);opacity:.4}
+.water-cup.filled{filter:none;opacity:1;background:#1e3a5f}
+.prog-item{margin-bottom:12px}
+.prog-top{display:flex;justify-content:space-between;margin-bottom:4px;font-size:13px}
+.prog-label{font-weight:600}
+.prog-vals{color:var(--muted);font-size:12px}
+.prog-bar{height:8px;background:var(--bg3);border-radius:99px;overflow:hidden}
+.prog-fill{height:100%;border-radius:99px;transition:width .8s}
+.meal-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:12px;overflow:hidden}
+.meal-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px}
+.meal-header-left{display:flex;align-items:center;gap:12px}
+.meal-icon-wrap{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.meal-title{font-weight:800;font-size:15px}
+.meal-subtitle{font-size:12px;color:var(--muted)}
+.meal-cta{display:flex;align-items:center;gap:10px}
+.meal-cal-total{font-size:14px;font-weight:700;color:var(--muted)}
+.add-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;gap:4px}
+.food-table{border-top:1px solid var(--border)}
+.food-row{display:grid;grid-template-columns:1fr 60px 60px 60px 60px 70px 32px;align-items:center;padding:8px 16px;border-bottom:1px solid var(--border);font-size:13px}
+.food-row:last-child{border-bottom:none}
+.food-row-header{font-size:11px;color:var(--muted);font-weight:700}
+.food-name-cell .fname{font-weight:600}
+.food-name-cell .fserv{font-size:11px;color:var(--muted)}
+.food-stat{text-align:right;font-weight:700}
+.del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px;border-radius:4px}
+.del-btn:hover{color:var(--red)}
+.btn{padding:10px 16px;border:none;border-radius:var(--rsm);cursor:pointer;font-weight:700;font-size:14px;transition:.15s}
+.btn-primary{background:var(--grad);color:#fff}
+.btn-success{background:#10b981;color:#fff}
+.btn-danger{background:var(--red);color:#fff}
+.btn-ghost{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-full{width:100%}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.field input,.field select{width:100%;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:14px}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent)}
+.search-wrap{position:relative}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:2;stroke-linecap:round}
+.search-input{width:100%;padding:10px 12px 10px 38px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);color:var(--text);font-size:14px}
+.cat-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.cat-chip{padding:4px 12px;border-radius:99px;background:var(--bg3);border:1px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;color:var(--muted)}
+.cat-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.food-list-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);transition:.15s}
+.food-list-item:hover{background:var(--bg3)}
+.fli-icon{font-size:22px;flex-shrink:0}
+.fli-info{flex:1;min-width:0}
+.fli-name{font-weight:700;font-size:14px}
+.fli-meta{font-size:11px;color:var(--muted)}
+.fli-cal{font-weight:800;font-size:13px;color:var(--accent)}
+.fli-add{background:var(--accent);color:#fff;border:none;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.empty{text-align:center;padding:32px 16px;color:var(--muted)}
+.empty-icon{font-size:36px;margin-bottom:8px}
+.scanner-box{}
+.scanner-vp{background:var(--bg3);border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.scanner-frame{width:120px;height:80px;border:2px solid var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+.sf-inner{width:80px;height:50px;position:relative}
+.scanner-laser{height:2px;background:var(--accent);border-radius:1px;animation:scan 1.5s ease-in-out infinite}
+@keyframes scan{0%,100%{transform:translateY(0)}50%{transform:translateY(48px)}}
+.scanner-hint{font-size:12px;color:var(--muted)}
+.scan-actions{display:flex;gap:8px}
+.tabs{display:flex;gap:4px;background:var(--bg3);padding:4px;border-radius:10px;margin-bottom:20px}
+.tab{flex:1;padding:8px;text-align:center;border-radius:7px;cursor:pointer;font-size:13px;font-weight:700;color:var(--muted)}
+.tab.active{background:var(--bg2);color:var(--text)}
+.pie-legend{display:flex;flex-direction:column;gap:10px}
+.pie-row{display:flex;align-items:center;gap:8px}
+.pie-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.pie-label{font-size:13px;font-weight:600;flex:1}
+.pie-pct{font-size:15px;font-weight:800}
+.chart-bar-wrap{display:flex;align-items:flex-end;gap:4px;height:160px;padding-top:20px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center}
+.bar-val{font-size:10px;color:var(--muted);margin-bottom:4px;font-weight:600}
+.bar-body{width:100%;flex:1;display:flex;align-items:flex-end}
+.bar-fill{width:100%;border-radius:4px 4px 0 0;transition:height .8s;min-height:2px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.modal-title{font-size:18px;font-weight:800}
+.modal-close{background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer}
+.modal-amount-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.nf-preview{background:var(--bg3);border-radius:var(--rsm);padding:14px}
+.nf-title{font-size:13px;font-weight:700;margin-bottom:10px}
+.nf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
+.nf-extras{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.nf-cell{text-align:center}
+.nf-val{font-size:16px;font-weight:800}
+.nf-key{font-size:11px;color:var(--muted)}
+.search-results-box{background:var(--bg3);border:1px solid var(--border);border-radius:var(--rsm);max-height:200px;overflow-y:auto}
+.search-row{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer}
+.search-row:hover{background:var(--bg2)}
+.sr-name{font-weight:700;font-size:14px}
+.sr-meta{font-size:11px;color:var(--muted)}
+.sr-cal{font-weight:800;color:var(--accent);font-size:13px}
+.wt-item{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.cf-item{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.avatar{width:52px;height:52px;border-radius:14px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#fff;flex-shrink:0}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--green);color:#fff;padding:12px 24px;border-radius:99px;font-weight:700;font-size:14px;z-index:999;transition:.3s;opacity:0}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:50}
+@media(max-width:1100px){.grid-4{grid-template-columns:repeat(2,1fr)}.home-grid{grid-template-columns:1fr}}
+@media(max-width:768px){.hamburger{display:flex}.topbar-nav{display:none}.sidebar{position:fixed;left:-280px;top:60px;height:calc(100vh - 60px);z-index:60;transition:.3s;width:260px}.sidebar.open{left:0}.home-grid{grid-template-columns:1fr}.grid-2{grid-template-columns:1fr}.food-row{grid-template-columns:1fr 60px 32px}.hide-md,.hide-sm{display:none}}
+@media(max-width:480px){.grid-4{grid-template-columns:repeat(2,1fr)}.modal{padding:16px}}
 </style>
 </head>
-
 <body>
-
-<button onclick="startScanner()">📷 Scan barcode</button>
-
-<div id="reader"></div>
-<div id="result"></div>
-
-<script src="https://unpkg.com/@zxing/browser@latest"></script>
-
-<script>
-let reader = null;
-let controls = null;
-let scanning = false;
-
-async function startScanner() {
-  const resultEl = document.getElementById("result");
-  const readerEl = document.getElementById("reader");
-
-  resultEl.innerText = "Starting camera...";
-
-  if (!reader) {
-    reader = new ZXing.BrowserMultiFormatReader();
-  }
-
-  try {
-    const devices = await ZXing.BrowserMultiFormatReader.listVideoInputDevices();
-
-    const deviceId = devices?.[devices.length - 1]?.deviceId;
-
-    scanning = true;
-
-    controls = await reader.decodeFromVideoDevice(
-      deviceId,
-      readerEl,
-      async (result) => {
-        if (!result || !scanning) return;
-
-        scanning = false;
-
-        const code = result.getText();
-        resultEl.innerText = "Scanned: " + code;
-
-        try {
-          controls?.stop();
-        } catch (e) {}
-
-        reader.reset();
-
-        await fetchFood(code);
-      }
-    );
-
-  } catch (e) {
-    resultEl.innerText = "Camera error: " + e.message;
-  }
-}
-
-async function fetchFood(barcode) {
-  const resultEl = document.getElementById("result");
-
-  try {
-    const res = await fetch(
-      "https://world.openfoodfacts.org/api/v2/product/" + barcode + ".json"
-    );
-
-    const data = await res.json();
-
-    if (data.status === 1) {
-      const p = data.product;
-
-      resultEl.innerHTML =
-        "🍎 <b>" + (p.product_name || "Unknown") + "</b><br>" +
-        "🔥 " + (p.nutriments?.["energy-kcal_100g"] ?? "?") + " kcal / 100g";
-    } else {
-      resultEl.innerText = "Food not found.";
-    }
-
-  } catch (e) {
-    resultEl.innerText = "API error.";
-  }
-}
-</script>
-</body>
-</html>
-  <!-- BARCODE SCANNER UI -->
-<div style="text-align:center; margin:20px 0;">
-  <button onclick="toggleScanner()" style="padding:12px 20px; font-size:16px;">
-    📷 Scan barcode
-  </button>
-</div>
-
-<div id="reader" style="width:100%; max-width:400px; margin:auto; display:none;"></div>
-
 <div class="toast" id="toast"></div>
-
+ 
 <!-- ── TOPBAR ─────────────────────────────────────────────── -->
 <header class="topbar">
   <div style="display:flex;align-items:center;gap:16px;">
@@ -1225,45 +1282,45 @@ function changeDate(dir){
   } else {state.meals={breakfast:[],lunch:[],dinner:[],snacks:[]};state.water=0;}
   save();renderAll();
 }
-<!-- BARCODE SCANNER -->
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+function showToast(msg, color='var(--green)'){
+  const t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=msg; t.style.background=color||'var(--green)';
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+function switchProgressTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('progressToday').style.display = tab === 'today' ? 'block' : 'none';
+  document.getElementById('progressWeek').style.display = tab === 'week' ? 'block' : 'none';
+  document.getElementById('progressWeight').style.display = tab === 'weight' ? 'block' : 'none';
+  if (tab === 'week') renderWeekChart();
+  if (tab === 'weight') renderWeightLog();
+}
+window.onload=init;
+</script>
 
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 let html5QrcodeScanner = null;
 let scanningLocked = false;
-function onScanError(err) {
-  // ignoriramo (normalno pri scanningu)
-}
+
 function startScanner() {
   const reader = document.getElementById("reader");
   if (!reader) return;
-
   reader.style.display = "block";
-
-  html5QrcodeScanner = new Html5QrcodeScanner(
-    "reader",
-    { fps: 10, qrbox: 250 },
-    false
-  );
-
-  html5QrcodeScanner.render(onScanSuccess,onScanError);
+  html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false);
+  html5QrcodeScanner.render(onScanSuccess, onScanError);
 }
 
 async function stopScanner() {
   if (html5QrcodeScanner) {
-    try {
-      await html5QrcodeScanner.clear();
-    } catch (e) {
-      console.log("Clear error:", e);
-    }
+    try { await html5QrcodeScanner.clear(); } catch(e) {}
     html5QrcodeScanner = null;
   }
-
   const reader = document.getElementById("reader");
-  if (reader) {
-    reader.innerHTML = ""; // 🔥 extra cleanup (important)
-    reader.style.display = "none";
-  }
+  if (reader) { reader.innerHTML = ""; reader.style.display = "none"; }
 }
 
 function toggleScanner() {
@@ -1271,41 +1328,42 @@ function toggleScanner() {
   else startScanner();
 }
 
+function onScanError(err) {}
+
 async function onScanSuccess(decodedText) {
   if (scanningLocked) return;
   scanningLocked = true;
-
-  console.log("Scanned:", decodedText);
-
-  const food = await findFoodByBarcode(decodedText);
-
-  const resultEl = document.getElementById("result");
-
-  if (food && food.name && resultEl) {
-    resultEl.innerText = `${food.name} (${food.cal ?? "?"} kcal)`;
+  await stopScanner();
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
+    const data = await res.json();
+    if (data.status === 1) {
+      const p = data.product;
+      selectedFood = {
+        name: p.product_name || 'Scanned Food',
+        emoji: '📦', cat: 'Scanned',
+        cal: p.nutriments?.['energy-kcal_100g'] ?? 0,
+        prot: p.nutriments?.proteins_100g ?? 0,
+        carbs: p.nutriments?.carbohydrates_100g ?? 0,
+        fat: p.nutriments?.fat_100g ?? 0,
+        fiber: p.nutriments?.fiber_100g ?? 0,
+        sugar: p.nutriments?.sugars_100g ?? 0,
+        sodium: (p.nutriments?.sodium_100g ?? 0) * 1000,
+      };
+      currentMeal = 'snacks';
+      document.getElementById('foodSearch').value = selectedFood.name;
+      document.getElementById('foodAmount').value = '100';
+      document.getElementById('foodUnit').value = 'g';
+      document.getElementById('modalMealTitle').textContent = '+ Add Scanned Food';
+      updatePreview();
+      document.getElementById('addFoodModal').classList.add('open');
+    } else {
+      showToast('Food not found in database', 'var(--red)');
+    }
+  } catch(e) {
+    showToast('API error: ' + e.message, 'var(--red)');
   }
-
-  setTimeout(() => {
-    scanningLocked = false;
-    stopScanner();
-  }, 1500);
-}
-
-async function findFoodByBarcode(barcode) {
-  const res = await fetch(
-    `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`
-  );
-
-  const data = await res.json();
-
-  if (data.status === 1) {
-    return {
-      name: data.product.product_name || "Unknown",
-      cal: data.product.nutriments?.["energy-kcal_100g"]
-    };
-  }
-
-  return null;
+  scanningLocked = false;
 }
 </script>
 </body>
