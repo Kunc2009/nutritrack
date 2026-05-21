@@ -1314,43 +1314,48 @@ async function handleBarcodeImage(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    showToast('🔍 Procesiram sliko...', 'var(--accent)');
+    showToast('🔍 Procesiram sliko... (max 5 sekund)', 'var(--accent)');
 
     const url = URL.createObjectURL(file);
 
-    // Timeout - če Quagga visi več kot 6 sekund, ga prekine
-    let timeoutId = setTimeout(() => {
-        showToast('⏰ Prepočasno. Poskusi drugo sliko.', 'var(--red)');
+    const timeoutId = setTimeout(() => {
         URL.revokeObjectURL(url);
-    }, 6500);
+        event.target.value = '';
+        showToast('⏰ Quagga je prepočasen.<br>Greva direktno na ročni vnos.', 'var(--orange)');
+        openManualEntryModal();
+    }, 5000);
 
-    Quagga.decodeSingle({
-        decoder: {
-            readers: [
-                'ean_reader', 'ean_8_reader', 'upc_reader', 'upc_e_reader',
-                'code_128_reader', 'code_39_reader', 'itf_reader'
-            ]
-        },
-        locate: true,
-        numOfWorkers: 0,
-        inputStream: {
-            size: 1800,
-            singleChannel: false
-        },
-        src: url
-    }, async function(result) {
+    try {
+        Quagga.decodeSingle({
+            decoder: {
+                readers: ['ean_reader', 'code_128_reader', 'ean_8_reader', 'upc_reader', 'code_39_reader']
+            },
+            locate: true,
+            numOfWorkers: 0,
+            inputStream: { size: 1600 },
+            src: url
+        }, async (result) => {
+            clearTimeout(timeoutId);
+            URL.revokeObjectURL(url);
+            event.target.value = '';
+
+            if (result && result.codeResult && result.codeResult.code) {
+                console.log("✅ Najdena koda:", result.codeResult.code);
+                await onScanSuccess(result.codeResult.code);
+            } else {
+                console.log("❌ Ni kode:", result);
+                showToast('❌ Kode nisem našel.', 'var(--red)');
+                setTimeout(() => openManualEntryModal(), 800);
+            }
+        });
+    } catch (err) {
         clearTimeout(timeoutId);
         URL.revokeObjectURL(url);
         event.target.value = '';
-
-        if (result && result.codeResult && result.codeResult.code) {
-            console.log("✅ KODA NAJDENA:", result.codeResult.code);
-            await onScanSuccess(result.codeResult.code);
-        } else {
-            console.log("❌ Quagga ni uspel:", result);
-            showToast('❌ Kode nisem našel.<br>Poskusi boljšo, ravno in dobro osvetljeno sliko.', 'var(--red)');
-        }
-    });
+        showToast('Napaka pri branju.', 'var(--red)');
+        openManualEntryModal();
+    }
+}
 }
 async function onScanSuccess(decodedText) {
     if (navigator.vibrate) navigator.vibrate(100);
