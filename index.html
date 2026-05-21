@@ -1304,25 +1304,22 @@ window.onload=init;
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 let html5Qrcode = null;
-let scanningLocked = false;
 
 async function startScanner() {
   const reader = document.getElementById("reader");
-  if (!reader) return;
   reader.style.display = "block";
-  
   html5Qrcode = new Html5Qrcode("reader");
-  
   try {
     await html5Qrcode.start(
       { facingMode: "environment" },
       { fps: 10, qrbox: 250 },
       onScanSuccess,
-      onScanError
+      () => {}
     );
   } catch(e) {
-    showToast('Camera error: ' + e, 'var(--red)');
+    showToast('Napaka kamere: ' + e, 'var(--red)');
     reader.style.display = "none";
+    html5Qrcode = null;
   }
 }
 
@@ -1333,7 +1330,8 @@ async function stopScanner() {
     html5Qrcode = null;
   }
   const reader = document.getElementById("reader");
-  if (reader) { reader.innerHTML = ""; reader.style.display = "none"; }
+  reader.innerHTML = "";
+  reader.style.display = "none";
 }
 
 function toggleScanner() {
@@ -1343,18 +1341,21 @@ function toggleScanner() {
     startScanner();
   }
 }
-function onScanError(err) {}async function onScanSuccess(decodedText) {
-  if (scanningLocked) return;
-  scanningLocked = true;
+
+async function onScanSuccess(decodedText) {
+  // takoj ustavi kamero
   await stopScanner();
+
   try {
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
     const data = await res.json();
+
     if (data.status === 1) {
       const p = data.product;
       selectedFood = {
-        name: p.product_name || 'Scanned Food',
-        emoji: '📦', cat: 'Scanned',
+        name: p.product_name || 'Skenirana hrana',
+        emoji: '📦',
+        cat: 'Scanned',
         cal: p.nutriments?.['energy-kcal_100g'] ?? 0,
         prot: p.nutriments?.proteins_100g ?? 0,
         carbs: p.nutriments?.carbohydrates_100g ?? 0,
@@ -1367,16 +1368,15 @@ function onScanError(err) {}async function onScanSuccess(decodedText) {
       document.getElementById('foodSearch').value = selectedFood.name;
       document.getElementById('foodAmount').value = '100';
       document.getElementById('foodUnit').value = 'g';
-      document.getElementById('modalMealTitle').textContent = '+ Add Scanned Food';
+      document.getElementById('modalMealTitle').textContent = '+ Dodaj skenirano hrano';
       updatePreview();
       document.getElementById('addFoodModal').classList.add('open');
     } else {
-      showToast('Food not found in database', 'var(--red)');
+      showToast('Hrana ni najdena v bazi', 'var(--red)');
     }
   } catch(e) {
-    showToast('API error: ' + e.message, 'var(--red)');
+    showToast('API napaka: ' + e.message, 'var(--red)');
   }
-  scanningLocked = false;
 }
 </script>
 </body>
