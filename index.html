@@ -1307,66 +1307,73 @@ window.onload=init;
 </script>
 <script src="html5-qrcode.min.js"></script>
 <script>
-// Barcode Scanner - Diagnostic version
+// === BARCODE SCANNER - ULTRA DEBUG ===
+console.log("🔧 Scanner script loaded");
+
 let html5QrcodeScanner = null;
 
+function toggleScanner() {
+    console.log("📍 toggleScanner() called");
+    
+    if (html5QrcodeScanner) {
+        console.log("Stopping scanner...");
+        stopScanner();
+    } else {
+        console.log("Starting scanner...");
+        startScanner();
+    }
+}
+
 async function startScanner() {
+    console.log("🚀 startScanner() started");
+    
     const reader = document.getElementById("reader");
+    if (!reader) {
+        console.error("❌ Element #reader not found!");
+        return;
+    }
+
     reader.style.display = "block";
     reader.innerHTML = "";
 
-    html5QrcodeScanner = new Html5Qrcode("reader", { verbose: true }); // verbose = true za debug
-
     try {
+        html5QrcodeScanner = new Html5Qrcode("reader", { verbose: true });
+        console.log("✅ Html5Qrcode object created");
+
         const cameras = await Html5Qrcode.getCameras();
-        console.log("Found cameras:", cameras);
+        console.log("📸 Found cameras:", cameras);
 
-        const backCamera = cameras.find(c => c.label.toLowerCase().includes("back") || 
-                                           c.label.toLowerCase().includes("rear")) || cameras[cameras.length-1];
+        if (!cameras.length) {
+            showToast('No camera found', 'var(--red)');
+            return;
+        }
 
+        const backCamera = cameras[cameras.length - 1];
         console.log("Using camera:", backCamera.label);
 
         await html5QrcodeScanner.start(
             backCamera.id,
-            { 
-                fps: 30,
-                qrbox: { width: 250, height: 250 },
-                aspectRatio: 1.0,
-                disableFlip: true,
-                formatsToSupport: [
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.CODE_39,
-                    Html5QrcodeSupportedFormats.ITF
-                ]
+            { fps: 20, qrbox: { width: 250, height: 250 } },
+            (decodedText) => {
+                console.log("🎉 BARCODE SUCCESS:", decodedText);
+                onScanSuccess(decodedText);
             },
-            onScanSuccess,
-            (error) => {
-                // console.log("Scan error (normal):", error); // zakomentirano, da ne spam-a
+            (err) => {
+                // console.log("Scan err:", err); // zakomentirano
             }
         );
 
-        console.log("✅ Scanner successfully started");
-
-        // Scanning line
-        const scanLine = document.createElement('div');
-        scanLine.id = 'scanLine';
-        scanLine.style.cssText = `position:absolute;left:0;top:50%;width:100%;height:3px;background:linear-gradient(90deg,transparent,#6c63ff,#ec4899,transparent);animation:scanAnim 1.4s linear infinite;z-index:100;`;
-        reader.appendChild(scanLine);
+        console.log("✅ Scanner SUCCESSFULLY STARTED!");
 
     } catch (e) {
-        console.error("Start scanner error:", e);
-        showToast('Camera start failed: ' + e.message, 'var(--red)');
+        console.error("❌ Error in startScanner:", e);
+        showToast('Error: ' + e.message, 'var(--red)');
     }
 }
 
 async function stopScanner() {
     if (html5QrcodeScanner) {
         try { await html5QrcodeScanner.stop(); } catch(e){}
-        try { await html5QrcodeScanner.clear(); } catch(e){}
         html5QrcodeScanner = null;
     }
     const reader = document.getElementById("reader");
@@ -1374,35 +1381,14 @@ async function stopScanner() {
     reader.innerHTML = "";
 }
 
-function toggleScanner() {
-    if (html5QrcodeScanner) stopScanner();
-    else startScanner();
-}
-
 async function onScanSuccess(decodedText) {
-    console.log("🎉 BARCODE DETECTED:", decodedText);
     await stopScanner();
-    showToast('✅ Barcode detected: ' + decodedText, 'var(--green)');
-
-    // ... tvoj obstoječi klic OpenFoodFacts ostane enak ...
-    try {
-        const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
-        const data = await res.json();
-        if (data.status === 1 && data.product) {
-            // ... tvoj selectedFood objekt ...
-            const p = data.product;
-            selectedFood = { /* tvoj obstoječi objekt */ };
-            currentMeal = 'snacks';
-            document.getElementById('foodSearch').value = selectedFood.name;
-            document.getElementById('foodAmount').value = '100';
-            document.getElementById('foodUnit').value = 'g';
-            updatePreview();
-            document.getElementById('addFoodModal').classList.add('open');
-        }
-    } catch(e) {}
+    showToast('✅ Barcode: ' + decodedText);
+    // tukaj lahko kasneje dodaš OpenFoodFacts klic
 }
 
 window.toggleScanner = toggleScanner;
+console.log("🔧 Scanner script fully initialized");
 </script>
 </body>
 </html>
