@@ -1463,23 +1463,16 @@ async function onScanSuccess(decodedText) {
                 sodium: Math.round((p.nutriments?.sodium_100g || 0) * 1000),
             };
             showToast('✅ ' + selectedFood.name);
+            openFoodModal();
         } else {
-            const ime = prompt('Produkt ni v bazi.\nVnesi ime:');
-            if (!ime) return;
-            selectedFood = {
-                name: ime, emoji: '📦', cat: 'Scanned',
-                cal: 0, prot: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0,
-            };
+            openManualEntryModal();
         }
     } catch(e) {
-        const ime = prompt('Napaka.\nVnesi ime ročno:');
-        if (!ime) return;
-        selectedFood = {
-            name: ime, emoji: '📦', cat: 'Scanned',
-            cal: 0, prot: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0,
-        };
+        openManualEntryModal();
     }
+}
 
+function openFoodModal() {
     currentMeal = 'snacks';
     document.getElementById('foodSearch').value = selectedFood.name;
     document.getElementById('foodAmount').value = '100';
@@ -1489,7 +1482,75 @@ async function onScanSuccess(decodedText) {
     document.getElementById('addFoodModal').classList.add('open');
 }
 
-window.toggleScanner = toggleScanner;
+function openManualEntryModal() {
+    // Ustvari modal za ročni vnos
+    const existing = document.getElementById('manualEntryModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'manualEntryModal';
+    modal.style.cssText = `
+        position:fixed; inset:0;
+        background:rgba(0,0,0,0.6);
+        z-index:200; display:flex;
+        align-items:center; justify-content:center;
+        padding:20px;
+    `;
+    modal.innerHTML = `
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                <div style="font-size:18px;font-weight:800;">📦 Vnesi podatke</div>
+                <button onclick="document.getElementById('manualEntryModal').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+            </div>
+            <div style="font-size:13px;color:var(--muted);margin-bottom:16px;">Produkt ni bil najden v bazi. Vnesi ime in makrote ročno.</div>
+
+            <div class="field"><label>Ime izdelka</label><input type="text" id="meNome" placeholder="npr. Protein Bar XY"/></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="field" style="margin-bottom:10px;"><label>Kalorije (kcal/100g)</label><input type="number" id="meCal" placeholder="0"/></div>
+                <div class="field" style="margin-bottom:10px;"><label>Protein (g)</label><input type="number" id="meProt" placeholder="0"/></div>
+                <div class="field" style="margin-bottom:10px;"><label>Ogljikovi hidrati (g)</label><input type="number" id="meCarbs" placeholder="0"/></div>
+                <div class="field" style="margin-bottom:10px;"><label>Maščobe (g)</label><input type="number" id="meFat" placeholder="0"/></div>
+                <div class="field" style="margin-bottom:10px;"><label>Vlaknine (g)</label><input type="number" id="meFiber" placeholder="0"/></div>
+                <div class="field" style="margin-bottom:10px;"><label>Sladkorji (g)</label><input type="number" id="meSugar" placeholder="0"/></div>
+                <div class="field" style="margin-bottom:0;grid-column:1/-1;"><label>Natrij (mg)</label><input type="number" id="meSodium" placeholder="0"/></div>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-top:16px;">
+                <button onclick="confirmManualEntry()" class="btn btn-primary" style="flex:1;">✅ Dodaj v log</button>
+                <button onclick="confirmManualEntry(true)" class="btn btn-ghost">💾 Shrani + Dodaj</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    setTimeout(() => document.getElementById('meNome')?.focus(), 300);
+}
+
+function confirmManualEntry(save = false) {
+    const name = document.getElementById('meNome')?.value.trim();
+    if (!name) { showToast('Vnesi ime izdelka', 'var(--red)'); return; }
+
+    selectedFood = {
+        name,
+        emoji: '📦', cat: 'Scanned',
+        cal: parseFloat(document.getElementById('meCal')?.value) || 0,
+        prot: parseFloat(document.getElementById('meProt')?.value) || 0,
+        carbs: parseFloat(document.getElementById('meCarbs')?.value) || 0,
+        fat: parseFloat(document.getElementById('meFat')?.value) || 0,
+        fiber: parseFloat(document.getElementById('meFiber')?.value) || 0,
+        sugar: parseFloat(document.getElementById('meSugar')?.value) || 0,
+        sodium: parseFloat(document.getElementById('meSodium')?.value) || 0,
+    };
+
+    // Shrani kot custom food za naslednjič
+    if (save) {
+        state.customFoods.push({...selectedFood});
+        save();
+        showToast('💾 Shranjeno v My Custom Foods!');
+    }
+
+    document.getElementById('manualEntryModal')?.remove();
+    openFoodModal();
+}
 </script>
 </body>
 </html>
