@@ -1305,97 +1305,122 @@ function switchProgressTab(tab, el) {
 }
 window.onload=init;
 </script>
+<!-- Place this right before </body> -->
 <script src="html5-qrcode.min.js"></script>
 <script>
-let html5Qrcode = null;
+// Barcode Scanner
+let html5QrcodeScanner = null;
+
 async function startScanner() {
-  const reader = document.getElementById("reader");
-  reader.style.display = "block";
-  reader.style.position = "relative";
-  reader.innerHTML = "";
-  html5Qrcode = new Html5Qrcode("reader", { verbose: true });
-  try {
-    const cameras = await Html5Qrcode.getCameras();
-    console.log("Kamere:", JSON.stringify(cameras));
-    if (!cameras || cameras.length === 0) {
-      showToast('Ni najdene kamere', 'var(--red)');
-      html5Qrcode = null;
-      return;
+    const reader = document.getElementById("reader");
+    reader.style.display = "block";
+    reader.innerHTML = ""; // clear previous
+
+    html5QrcodeScanner = new Html5Qrcode("reader");
+
+    try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras.length) {
+            showToast('No camera detected', 'var(--red)');
+            return;
+        }
+
+        const cameraId = cameras[cameras.length - 1].id;
+
+        await html5QrcodeScanner.start(
+            cameraId,
+            { 
+                fps: 20, 
+                qrbox: { width: 280, height: 280 },
+                aspectRatio: 1.0,
+                formatsToSupport: [
+                    Html5QrcodeSupportedFormats.EAN_13,
+                    Html5QrcodeSupportedFormats.EAN_8,
+                    Html5QrcodeSupportedFormats.UPC_A,
+                    Html5QrcodeSupportedFormats.UPC_E,
+                    Html5QrcodeSupportedFormats.CODE_128,
+                ]
+            },
+            onScanSuccess,
+            () => {} // silent error callback
+        );
+
+        // Scanning line
+        const scanLine = document.createElement('div');
+        scanLine.id = 'scanLine';
+        scanLine.style.cssText = `
+            position: absolute; left: 0; top: 50%; width: 100%; height: 3px;
+            background: linear-gradient(90deg, transparent, #6c63ff, #ec4899, transparent);
+            box-shadow: 0 0 12px #6c63ff;
+            animation: scanAnim 1.6s linear infinite;
+            z-index: 100;
+        `;
+        reader.appendChild(scanLine);
+
+    } catch (e) {
+        console.error(e);
+        showToast('Camera access failed: ' + e.message, 'var(--red)');
+        stopScanner();
     }
-    const cameraId = cameras[cameras.length - 1].id;
-    await html5Qrcode.start(
-      cameraId,
-      { 
-  fps: 25, 
-  qrbox: { width: 600, height: 400 },
-  formatsToSupport: [
-    Html5QrcodeSupportedFormats.EAN_13,
-    Html5QrcodeSupportedFormats.EAN_8,
-    Html5QrcodeSupportedFormats.UPC_A,
-    Html5QrcodeSupportedFormats.UPC_E,
-    Html5QrcodeSupportedFormats.CODE_128,
-    Html5QrcodeSupportedFormats.CODE_39,
-  ]
-},
-      onScanSuccess,
-      (err) => { console.log("scan error:", err); }
-    );
-    const scanLine = document.createElement('div');
-    scanLine.id = 'scanLine';
-    scanLine.style.cssText = `position:absolute;width:100%;height:3px;background:linear-gradient(90deg,transparent,#6c63ff,#ec4899,transparent);animation:scanAnim 1.5s ease-in-out infinite;z-index:999;pointer-events:none;top:50%;`;
-    reader.appendChild(scanLine);
-  } catch(e) {
-    showToast('Napaka kamere: ' + e, 'var(--red)');
-    reader.style.display = "none";
-    html5Qrcode = null;
-  }
 }
+
 async function stopScanner() {
-  if (html5Qrcode) {
-    try { await html5Qrcode.stop(); } catch(e) {}
-    try { await html5Qrcode.clear(); } catch(e) {}
-    html5Qrcode = null;
-  }
-  const reader = document.getElementById("reader");
-  reader.innerHTML = "";
-  reader.style.display = "none";
-}
-function toggleScanner() {
-  if (html5Qrcode) { stopScanner(); } else { startScanner(); }
-}
-async function onScanSuccess(decodedText) {
-  await stopScanner();
-  showToast('📦 Barcode zaznan: ' + decodedText);
-  try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
-    const data = await res.json();
-    if (data.status === 1) {
-      const p = data.product;
-      selectedFood = {
-        name: p.product_name || 'Skenirana hrana',
-        emoji: '📦', cat: 'Scanned',
-        cal: p.nutriments?.['energy-kcal_100g'] ?? 0,
-        prot: p.nutriments?.proteins_100g ?? 0,
-        carbs: p.nutriments?.carbohydrates_100g ?? 0,
-        fat: p.nutriments?.fat_100g ?? 0,
-        fiber: p.nutriments?.fiber_100g ?? 0,
-        sugar: p.nutriments?.sugars_100g ?? 0,
-        sodium: (p.nutriments?.sodium_100g ?? 0) * 1000,
-      };
-      currentMeal = 'snacks';
-      document.getElementById('foodSearch').value = selectedFood.name;
-      document.getElementById('foodAmount').value = '100';
-      document.getElementById('foodUnit').value = 'g';
-      document.getElementById('modalMealTitle').textContent = '+ Dodaj skenirano hrano';
-      updatePreview();
-      document.getElementById('addFoodModal').classList.add('open');
-    } else {
-      showToast('❌ Ni najdeno: ' + decodedText, 'var(--red)');
+    if (html5QrcodeScanner) {
+        try { await html5QrcodeScanner.stop(); } catch(e){}
+        try { await html5QrcodeScanner.clear(); } catch(e){}
+        html5QrcodeScanner = null;
     }
-  } catch(e) {
-    showToast('API napaka: ' + e.message, 'var(--red)');
-  }
+    const reader = document.getElementById("reader");
+    reader.style.display = "none";
+    reader.innerHTML = "";
 }
+
+function toggleScanner() {
+    if (html5QrcodeScanner) {
+        stopScanner();
+    } else {
+        startScanner();
+    }
+}
+
+async function onScanSuccess(decodedText) {
+    await stopScanner();
+    showToast('✅ Barcode scanned: ' + decodedText);
+
+    try {
+        const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${decodedText}.json`);
+        const data = await res.json();
+
+        if (data.status === 1 && data.product) {
+            const p = data.product;
+            selectedFood = {
+                name: p.product_name || 'Scanned Product',
+                emoji: '📦',
+                cat: 'Scanned',
+                cal: Math.round(p.nutriments?.['energy-kcal_100g'] || 0),
+                prot: p.nutriments?.proteins_100g || 0,
+                carbs: p.nutriments?.carbohydrates_100g || 0,
+                fat: p.nutriments?.fat_100g || 0,
+                fiber: p.nutriments?.fiber_100g || 0,
+                sugar: p.nutriments?.sugars_100g || 0,
+                sodium: Math.round((p.nutriments?.sodium_100g || 0) * 1000),
+            };
+
+            currentMeal = 'snacks';
+            document.getElementById('foodSearch').value = selectedFood.name;
+            document.getElementById('foodAmount').value = '100';
+            document.getElementById('foodUnit').value = 'g';
+            updatePreview();
+            document.getElementById('addFoodModal').classList.add('open');
+        } else {
+            showToast('Product not found in OpenFoodFacts', 'var(--orange)');
+        }
+    } catch (e) {
+        showToast('Failed to fetch nutrition info', 'var(--red)');
+    }
+}
+
+window.toggleScanner = toggleScanner;
 </script>
 </body>
 </html>
