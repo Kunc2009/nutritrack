@@ -1326,8 +1326,9 @@ async function startScanner() {
     await html5Qrcode.start(
       cameraId,
       { 
+  { 
   fps: 25, 
-  qrbox: { width: 400, height: 200 },
+  qrbox: { width: 600, height: 400 },
   formatsToSupport: [
     Html5QrcodeSupportedFormats.EAN_13,
     Html5QrcodeSupportedFormats.EAN_8,
