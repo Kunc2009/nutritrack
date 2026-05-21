@@ -1327,25 +1327,15 @@ async function startScanner() {
 
     const cameraId = cameras[cameras.length - 1].id;
 
-    await html5Qrcode.start(
-      cameraId,
-      { 
-        fps: 15, 
-        qrbox: { width: 300, height: 150 },
-        aspectRatio: 1.5,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-        ]
-      },
-      onScanSuccess,
-      () => {}
-    );
-
+   await html5Qrcode.start(
+  cameraId,
+  { 
+    fps: 10, 
+    qrbox: { width: 250, height: 100 },
+  },
+  onScanSuccess,
+  () => {}
+);
     // dodaj črto šele AFTER .start()
     const scanLine = document.createElement('div');
     scanLine.id = 'scanLine';
