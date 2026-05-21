@@ -1310,18 +1310,15 @@ window.onload=init;
 let html5QrcodeScanner = null;
 
 async function startScanner() {
-    const reader = document.getElementById("reader");
-    reader.style.display = "block";
-    reader.innerHTML = "";
-
-    // Fullscreen overlay za boljši UX na telefonu
-    reader.style.cssText = `
-        display:block;
-        position:fixed;
-        top:0; left:0;
+    // Naredi fullscreen overlay ločeno
+    const overlay = document.createElement('div');
+    overlay.id = 'scannerOverlay';
+    overlay.style.cssText = `
+        position:fixed; top:0; left:0;
         width:100vw; height:100vh;
-        background:#000;
-        z-index:9999;
+        background:#000; z-index:9999;
+        display:flex; flex-direction:column;
+        align-items:center; justify-content:center;
     `;
 
     // Zapri gumb
@@ -1329,14 +1326,12 @@ async function startScanner() {
     closeBtn.textContent = '✕ Zapri';
     closeBtn.style.cssText = `
         position:absolute; top:16px; right:16px;
-        background:rgba(255,255,255,0.2);
+        background:rgba(255,255,255,0.15);
         color:#fff; border:none;
         padding:10px 18px; border-radius:99px;
-        font-size:15px; font-weight:700;
-        z-index:10001; cursor:pointer;
+        font-size:15px; font-weight:700; cursor:pointer;
     `;
     closeBtn.onclick = stopScanner;
-    reader.appendChild(closeBtn);
 
     // Navodilo
     const hint = document.createElement('div');
@@ -1347,12 +1342,23 @@ async function startScanner() {
         color:#fff; font-size:15px; font-weight:600;
         background:rgba(0,0,0,0.5);
         padding:10px 20px; border-radius:99px;
-        z-index:10001; white-space:nowrap;
+        white-space:nowrap;
     `;
-    reader.appendChild(hint);
+
+    // Reader div znotraj overlaya
+    const readerInner = document.createElement('div');
+    readerInner.id = 'readerInner';
+    readerInner.style.cssText = `
+        width:100vw; height:100vh;
+    `;
+
+    overlay.appendChild(closeBtn);
+    overlay.appendChild(hint);
+    overlay.appendChild(readerInner);
+    document.body.appendChild(overlay);
 
     try {
-        html5QrcodeScanner = new Html5Qrcode("reader", {
+        html5QrcodeScanner = new Html5Qrcode("readerInner", {
             verbose: false,
             formatsToSupport: [
                 Html5QrcodeSupportedFormats.EAN_13,
@@ -1365,9 +1371,8 @@ async function startScanner() {
             ]
         });
 
-        const width = window.innerWidth;
-        const boxW = Math.round(width * 0.85);
-        const boxH = Math.round(boxW * 0.45); // ploščato za barcodes
+        const boxW = Math.round(window.innerWidth * 0.85);
+        const boxH = Math.round(boxW * 0.45);
 
         await html5QrcodeScanner.start(
             { facingMode: "environment" },
@@ -1382,8 +1387,7 @@ async function startScanner() {
         );
 
     } catch (e) {
-        reader.style.cssText = '';
-        reader.style.display = 'none';
+        document.body.removeChild(overlay);
         showToast('Napaka kamere: ' + e.message, 'var(--red)');
     }
 }
@@ -1393,12 +1397,9 @@ async function stopScanner() {
         try { await html5QrcodeScanner.stop(); } catch(e) {}
         html5QrcodeScanner = null;
     }
-    const reader = document.getElementById("reader");
-    reader.style.cssText = '';
-    reader.style.display = 'none';
-    reader.innerHTML = '';
+    const overlay = document.getElementById('scannerOverlay');
+    if (overlay) document.body.removeChild(overlay);
 }
-
 function toggleScanner() {
     if (html5QrcodeScanner) {
         stopScanner();
