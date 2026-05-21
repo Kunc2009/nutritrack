@@ -1314,48 +1314,30 @@ async function handleBarcodeImage(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    showToast('🔍 Procesiram sliko... (max 5 sekund)', 'var(--accent)');
+    showToast('🔍 Nalagam sliko...', 'var(--accent)');
 
+    // Takoj pokažemo manual entry, ker Quagga preveč visi
+    setTimeout(() => {
+        showToast('📝 Quagga ima težave.<br>Prosim vnesi podatke ročno.', 'var(--orange)');
+        openManualEntryModal();
+    }, 1200);
+
+    // Še vedno poskusimo z Quaggo v ozadju (če slučajno uspe)
     const url = URL.createObjectURL(file);
-
-    const timeoutId = setTimeout(() => {
+    
+    Quagga.decodeSingle({
+        decoder: { readers: ['ean_reader', 'code_128_reader', 'upc_reader'] },
+        locate: true,
+        numOfWorkers: 0,
+        inputStream: { size: 1400 },
+        src: url
+    }, async (result) => {
         URL.revokeObjectURL(url);
-        event.target.value = '';
-        showToast('⏰ Quagga je prepočasen.<br>Greva direktno na ročni vnos.', 'var(--orange)');
-        openManualEntryModal();
-    }, 5000);
-
-    try {
-        Quagga.decodeSingle({
-            decoder: {
-                readers: ['ean_reader', 'code_128_reader', 'ean_8_reader', 'upc_reader', 'code_39_reader']
-            },
-            locate: true,
-            numOfWorkers: 0,
-            inputStream: { size: 1600 },
-            src: url
-        }, async (result) => {
-            clearTimeout(timeoutId);
-            URL.revokeObjectURL(url);
-            event.target.value = '';
-
-            if (result && result.codeResult && result.codeResult.code) {
-                console.log("✅ Najdena koda:", result.codeResult.code);
-                await onScanSuccess(result.codeResult.code);
-            } else {
-                console.log("❌ Ni kode:", result);
-                showToast('❌ Kode nisem našel.', 'var(--red)');
-                setTimeout(() => openManualEntryModal(), 800);
-            }
-        });
-    } catch (err) {
-        clearTimeout(timeoutId);
-        URL.revokeObjectURL(url);
-        event.target.value = '';
-        showToast('Napaka pri branju.', 'var(--red)');
-        openManualEntryModal();
-    }
-}
+        if (result && result.codeResult && result.codeResult.code) {
+            console.log("✅ Uspešno:", result.codeResult.code);
+            await onScanSuccess(result.codeResult.code);
+        }
+    });
 }
 async function onScanSuccess(decodedText) {
     if (navigator.vibrate) navigator.vibrate(100);
