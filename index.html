@@ -1298,82 +1298,7 @@ window.onload = function() {
 </script>
 
 <!-- ══ ZXING BARCODE SCANNER ══ -->
-function getAllProfiles(){try{return JSON.parse(localStorage.getItem('nt_profiles')||'[]');}catch(e){return[];}}
-function saveAllProfiles(p){localStorage.setItem('nt_profiles',JSON.stringify(p));}
-function getProfileKey(name){return 'nt3_'+name.toLowerCase().replace(/\s+/g,'_');}
 
-function renderProfileList(){
-  const profiles=getAllProfiles(),cont=document.getElementById('profileList');
-  if(!cont) return;
-  if(!profiles.length){cont.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">Ni profilov. Ustvari prvega!</div>';return;}
-  cont.innerHTML=profiles.map(p=>`
-    <div style="display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:.15s;"
-         onclick="loginProfile('${p.name}')"
-         onmouseover="this.style.background='var(--bg3)'"
-         onmouseout="this.style.background='var(--bg2)'">
-      <div style="width:44px;height:44px;border-radius:12px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0;">
-        ${p.name[0].toUpperCase()}
-      </div>
-      <div style="flex:1;">
-        <div style="font-weight:800;font-size:15px;">${p.name}</div>
-        <div style="font-size:11px;color:var(--muted);">Zadnja prijava: ${p.lastLogin?new Date(p.lastLogin).toLocaleDateString('sl'):'nikoli'}</div>
-      </div>
-      <button onclick="event.stopPropagation();deleteProfile('${p.name}')"
-              style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;"
-              onmouseover="this.style.color='var(--red)'"
-              onmouseout="this.style.color='var(--muted)'">✕</button>
-    </div>`).join('');
-}
-
-function createProfile(){
-  const name=document.getElementById('newProfileName').value.trim();
-  if(!name){showToast('Vnesi ime!','var(--red)');return;}
-  const profiles=getAllProfiles();
-  if(profiles.find(p=>p.name.toLowerCase()===name.toLowerCase())){showToast('Profil že obstaja!','var(--red)');return;}
-  profiles.push({name,created:Date.now(),lastLogin:null});
-  saveAllProfiles(profiles);
-  document.getElementById('newProfileName').value='';
-  document.getElementById('newProfileForm').style.display='none';
-  loginProfile(name);
-}
-
-function loginProfile(name){
-  currentProfile=name;
-  const profiles=getAllProfiles(),p=profiles.find(p=>p.name===name);
-  if(p){p.lastLogin=Date.now();saveAllProfiles(profiles);}
-  const saved=localStorage.getItem(getProfileKey(name));
-  if(saved){try{Object.assign(state,JSON.parse(saved));}catch(e){}}
-  else{
-    state={meals:{breakfast:[],lunch:[],dinner:[],snacks:[]},goals:{cal:2000,prot:150,carbs:250,fat:65,fiber:30},
-    water:0,weight:[],customFoods:[],profile:{name},history:[],logs:{},
-    currentDate:new Date().toDateString(),streak:1,theme:state.theme||'dark',activeCat:'All'};
-  }
-  document.getElementById('loginScreen').style.display='none';
-  document.getElementById('userName').textContent=name;
-  document.getElementById('userAvatar').textContent=name[0].toUpperCase();
-  if(state.theme==='light') document.body.classList.add('light');
-  else document.body.classList.remove('light');
-  const gmap={goalCal:'cal',goalProt:'prot',goalCarbs:'carbs',goalFat:'fat',goalFiber:'fiber'};
-  Object.entries(gmap).forEach(([id,k])=>{const el=document.getElementById(id);if(el&&state.goals[k]) el.value=state.goals[k];});
-  buildCatChips();
-  renderAll();
-  showToast(`👋 Zdravo, ${name}!`);
-}
-
-function deleteProfile(name){
-  if(!confirm(`Izbriši profil "${name}"?`)) return;
-  saveAllProfiles(getAllProfiles().filter(p=>p.name!==name));
-  localStorage.removeItem(getProfileKey(name));
-  renderProfileList();
-  showToast('Profil izbrisan','var(--red)');
-}
-
-function logoutProfile(){
-  save();
-  currentProfile=null;
-  document.getElementById('loginScreen').style.display='flex';
-  renderProfileList();
-}
 <script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
 <script>
 let scannerRunning = false;
@@ -1382,12 +1307,10 @@ let codeReader = null;
 let scannerControls = null;
 
 async function toggleLiveScanner() {
-  async function startScanner() {
   if (typeof ZXingBrowser === 'undefined') {
     showToast('❌ Scanner se ni naložil — osveži stran', 'var(--red)');
     return;
   }
-  // ... ostalo ostane enako
   if (scannerRunning) {
     stopScanner();
   } else {
