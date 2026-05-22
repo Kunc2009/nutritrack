@@ -1188,7 +1188,6 @@ function switchProgressTab(tab,el){
   if(tab==='weight') renderWeightLog();
 }
   // ── PROFILE SYSTEM ──
-let currentProfile = null;
 
 function getAllProfiles() {
   try { return JSON.parse(localStorage.getItem('nt_profiles') || '[]'); } catch(e) { return []; }
@@ -1252,7 +1251,17 @@ function loginProfile(name) {
   const key = getProfileKey(name);
   const saved = localStorage.getItem(key);
   if (saved) {
-    try { Object.assign(state, JSON.parse(saved)); } catch(e) {}
+    try {
+      const parsed = JSON.parse(saved);
+      // Popoln replace state-a (ne merge z Object.assign — izogni se starim podatkom)
+      state = Object.assign({
+        meals:{breakfast:[],lunch:[],dinner:[],snacks:[]},
+        goals:{cal:2000,prot:150,carbs:250,fat:65,fiber:30},
+        water:0, weight:[], customFoods:[], profile:{name},
+        history:[], logs:{}, currentDate:new Date().toDateString(),
+        streak:1, theme:'dark', activeCat:'All'
+      }, parsed);
+    } catch(e) {}
   } else {
     // Nov profil — resetiraj state
     state = {
@@ -1264,14 +1273,51 @@ function loginProfile(name) {
     };
   }
 
-  // Posodobi UI
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('userName').textContent = name;
-  document.getElementById('userAvatar').textContent = name[0].toUpperCase();
+  // Preveri datumski prehod
+  const today = new Date().toDateString();
+  if (state.currentDate !== today) {
+    if (!state.logs) state.logs = {};
+    state.logs[state.currentDate] = {
+      meals: JSON.parse(JSON.stringify(state.meals)),
+      cals: calcTotals().cal,
+      water: state.water
+    };
+    state.meals = {breakfast:[],lunch:[],dinner:[],snacks:[]};
+    state.water = 0;
+    state.currentDate = today;
+    // Posodobi streak
+    const yesterday = new Date(Date.now() - 86400000).toDateString();
+    if (state.logs[yesterday]) {
+      state.streak = (state.streak || 1) + 1;
+    } else {
+      state.streak = 1;
+    }
+  }
 
-  if(state.theme==='light') document.body.classList.add('light');
+  // Posodobi ciljna polja v UI
+  const gmap = {goalCal:'cal', goalProt:'prot', goalCarbs:'carbs', goalFat:'fat', goalFiber:'fiber'};
+  Object.entries(gmap).forEach(([id, k]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = state.goals[k] || '';
+  });
+
+  // Posodobi profilna polja v UI
+  const pmap = ['Name','Age','Gender','Height','Weight'];
+  pmap.forEach(k => {
+    const el = document.getElementById('profile' + k);
+    if (el && state.profile && state.profile[k.toLowerCase()]) el.value = state.profile[k.toLowerCase()];
+  });
+
+  // Posodobi header
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('userName').textContent = state.profile?.name || name;
+  document.getElementById('userAvatar').textContent = (state.profile?.name || name)[0].toUpperCase();
+  document.getElementById('streakCount').textContent = state.streak || 1;
+
+  if (state.theme === 'light') document.body.classList.add('light');
   else document.body.classList.remove('light');
 
+  save();
   buildCatChips();
   renderAll();
   showToast(`👋 Zdravo, ${name}!`);
@@ -1293,6 +1339,8 @@ function logoutProfile() {
   renderProfileList();
 }
 window.onload = function() {
+  // Zagotovi da je login screen viden ob zagonu
+  document.getElementById('loginScreen').style.display = 'flex';
   renderProfileList();
 };
 </script>
@@ -1516,6 +1564,7 @@ function confirmManualEntry(saveFood = false) {
   if (saveFood) { state.customFoods.push({...selectedFood}); save(); showToast('💾 Saved!'); }
   document.getElementById('manualEntryModal')?.remove();
   openScannedFoodModal();
+}
 </script>
 </body>
 </html>
