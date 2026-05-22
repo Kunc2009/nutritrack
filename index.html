@@ -240,6 +240,12 @@ body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e
 </style>
 </head>
 <body>
+  <video
+  id="video"
+  width="300"
+  autoplay
+  playsinline
+></video>
   <video id="video" width="300"></video>
 <p id="result">Scanaj barcode...</p>
 <div class="toast" id="toast"></div>
@@ -1387,54 +1393,24 @@ import {
   BrowserMultiFormatReader
 } from 'https://cdn.jsdelivr.net/npm/@zxing/browser@latest/+esm';
 
-const codeReader = new BrowserMultiFormatReader();
-
 const video = document.getElementById('video');
-const resultText = document.getElementById('result');
 
-codeReader.decodeFromVideoDevice(
-  null,
-  video,
-  async (result, err) => {
+navigator.mediaDevices
+  .getUserMedia({ video: true })
+  .then((stream) => {
 
-    if (result) {
+    video.srcObject = stream;
+    video.play();
 
-      const barcode = result.getText();
+    console.log("kamera dela");
 
-      resultText.innerText =
-        "Barcode: " + barcode;
+  })
+  .catch((err) => {
 
-      try {
+    console.error(err);
 
-        const response = await fetch(
-          `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
-        );
+  });
 
-        const data = await response.json();
-
-        if (data.status === 1) {
-
-          resultText.innerText =
-            "Produkt: " +
-            data.product.product_name;
-
-        } else {
-
-          resultText.innerText =
-            "Ni najdeno v databazi";
-
-        }
-
-      } catch (e) {
-
-        console.error(e);
-
-      }
-    }
-  }
-);
-
-</script>
 </script>
 </body>
 </html>
