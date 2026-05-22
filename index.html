@@ -240,6 +240,8 @@ body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e
 </style>
 </head>
 <body>
+  <video id="video" width="300"></video>
+<p id="result">Scanaj barcode...</p>
 <div class="toast" id="toast"></div>
  
 <header class="topbar">
@@ -1379,6 +1381,60 @@ function confirmManualEntry(saveFood=false) {
   document.getElementById('manualEntryModal')?.remove();
   openScannedFoodModal();
 }
+  <script type="module">
+
+import {
+  BrowserMultiFormatReader
+} from 'https://cdn.jsdelivr.net/npm/@zxing/browser@latest/+esm';
+
+const codeReader = new BrowserMultiFormatReader();
+
+const video = document.getElementById('video');
+const resultText = document.getElementById('result');
+
+codeReader.decodeFromVideoDevice(
+  null,
+  video,
+  async (result, err) => {
+
+    if (result) {
+
+      const barcode = result.getText();
+
+      resultText.innerText =
+        "Barcode: " + barcode;
+
+      try {
+
+        const response = await fetch(
+          `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`
+        );
+
+        const data = await response.json();
+
+        if (data.status === 1) {
+
+          resultText.innerText =
+            "Produkt: " +
+            data.product.product_name;
+
+        } else {
+
+          resultText.innerText =
+            "Ni najdeno v databazi";
+
+        }
+
+      } catch (e) {
+
+        console.error(e);
+
+      }
+    }
+  }
+);
+
+</script>
 </script>
 </body>
 </html>
