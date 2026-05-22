@@ -240,6 +240,31 @@ body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e
 </style>
 </head>
 <body>
+<!-- LOGIN SCREEN -->
+<div id="loginScreen" style="display:flex;position:fixed;inset:0;background:var(--bg);z-index:999;align-items:center;justify-content:center;padding:20px;">
+  <div style="width:100%;max-width:380px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="font-size:48px;">🥗</div>
+      <div style="font-size:28px;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">NutriTrack</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:6px;">Izberi profil ali ustvari novega</div>
+    </div>
+
+    <div id="profileList" style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;"></div>
+
+    <div id="newProfileForm" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:12px;">
+      <div style="font-size:15px;font-weight:800;margin-bottom:14px;">➕ Nov profil</div>
+      <div class="field"><label>Ime</label><input type="text" id="newProfileName" placeholder="npr. Janez"/></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="createProfile()">Ustvari</button>
+        <button class="btn btn-ghost" onclick="document.getElementById('newProfileForm').style.display='none'">Prekliči</button>
+      </div>
+    </div>
+
+    <button class="btn btn-ghost btn-full" onclick="document.getElementById('newProfileForm').style.display='block';setTimeout(()=>document.getElementById('newProfileName').focus(),100)">
+      ➕ Nov profil
+    </button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
  
 <header class="topbar">
@@ -586,6 +611,10 @@ body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e
           <div><div style="font-weight:700;">Clear Today's Log</div><div style="font-size:12px;color:var(--muted);">Remove all today's food entries</div></div>
           <button class="btn btn-danger btn-sm" onclick="clearTodayLog()">Clear Log</button>
         </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;">
+  <div><div style="font-weight:700;">Zamenjaj profil</div><div style="font-size:12px;color:var(--muted);">Odjavi se in izberi drug profil</div></div>
+  <button class="btn btn-ghost btn-sm" onclick="logoutProfile()">🔄 Odjava</button>
+</div>
       </div>
     </div>
 
@@ -766,7 +795,12 @@ let state = {
 };
 let selectedFood=null, currentMeal=null;
 
-function save(){try{localStorage.setItem('nt3',JSON.stringify(state));}catch(e){}}
+function save() {
+  try {
+    const key = currentProfile ? getProfileKey(currentProfile) : 'nt3';
+    localStorage.setItem(key, JSON.stringify(state));
+  } catch(e) {}
+}
 function load(){try{const s=localStorage.getItem('nt3');if(s) Object.assign(state,JSON.parse(s));}catch(e){}}
 
 function init(){
@@ -1153,7 +1187,116 @@ function switchProgressTab(tab,el){
   if(tab==='week') renderWeekChart();
   if(tab==='weight') renderWeightLog();
 }
-window.onload=init;
+  // ── PROFILE SYSTEM ──
+let currentProfile = null;
+
+function getAllProfiles() {
+  try { return JSON.parse(localStorage.getItem('nt_profiles') || '[]'); } catch(e) { return []; }
+}
+function saveAllProfiles(profiles) {
+  localStorage.setItem('nt_profiles', JSON.stringify(profiles));
+}
+function getProfileKey(name) {
+  return 'nt3_' + name.toLowerCase().replace(/\s+/g,'_');
+}
+
+function renderProfileList() {
+  const profiles = getAllProfiles();
+  const cont = document.getElementById('profileList');
+  if (!profiles.length) {
+    cont.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0;">Ni profilov. Ustvari prvega!</div>';
+    return;
+  }
+  cont.innerHTML = profiles.map(p => `
+    <div style="display:flex;align-items:center;gap:12px;background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;cursor:pointer;transition:.15s;" 
+         onclick="loginProfile('${p.name}')"
+         onmouseover="this.style.background='var(--bg3)'" 
+         onmouseout="this.style.background='var(--bg2)'">
+      <div style="width:44px;height:44px;border-radius:12px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;flex-shrink:0;">
+        ${p.name[0].toUpperCase()}
+      </div>
+      <div style="flex:1;">
+        <div style="font-weight:800;font-size:15px;">${p.name}</div>
+        <div style="font-size:11px;color:var(--muted);">Zadnja prijava: ${p.lastLogin ? new Date(p.lastLogin).toLocaleDateString('sl') : 'nikoli'}</div>
+      </div>
+      <button onclick="event.stopPropagation();deleteProfile('${p.name}')" 
+              style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px 8px;border-radius:6px;"
+              onmouseover="this.style.color='var(--red)'" 
+              onmouseout="this.style.color='var(--muted)'">✕</button>
+    </div>
+  `).join('');
+}
+
+function createProfile() {
+  const name = document.getElementById('newProfileName').value.trim();
+  if (!name) { showToast('Vnesi ime!', 'var(--red)'); return; }
+  const profiles = getAllProfiles();
+  if (profiles.find(p => p.name.toLowerCase() === name.toLowerCase())) {
+    showToast('Profil s tem imenom že obstaja!', 'var(--red)'); return;
+  }
+  profiles.push({ name, created: Date.now(), lastLogin: null });
+  saveAllProfiles(profiles);
+  document.getElementById('newProfileName').value = '';
+  document.getElementById('newProfileForm').style.display = 'none';
+  renderProfileList();
+  loginProfile(name);
+}
+
+function loginProfile(name) {
+  currentProfile = name;
+  const profiles = getAllProfiles();
+  const p = profiles.find(p => p.name === name);
+  if (p) { p.lastLogin = Date.now(); saveAllProfiles(profiles); }
+
+  // Naloži state za ta profil
+  const key = getProfileKey(name);
+  const saved = localStorage.getItem(key);
+  if (saved) {
+    try { Object.assign(state, JSON.parse(saved)); } catch(e) {}
+  } else {
+    // Nov profil — resetiraj state
+    state = {
+      meals:{breakfast:[],lunch:[],dinner:[],snacks:[]},
+      goals:{cal:2000,prot:150,carbs:250,fat:65,fiber:30},
+      water:0, weight:[], customFoods:[], profile:{name},
+      history:[], logs:{}, currentDate:new Date().toDateString(),
+      streak:1, theme:state.theme||'dark', activeCat:'All'
+    };
+  }
+
+  // Posodobi UI
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('userName').textContent = name;
+  document.getElementById('userAvatar').textContent = name[0].toUpperCase();
+
+  if(state.theme==='light') document.body.classList.add('light');
+  else document.body.classList.remove('light');
+
+  buildCatChips();
+  renderAll();
+  showToast(`👋 Zdravo, ${name}!`);
+}
+
+function deleteProfile(name) {
+  if (!confirm(`Izbriši profil "${name}" in vse podatke?`)) return;
+  const profiles = getAllProfiles().filter(p => p.name !== name);
+  saveAllProfiles(profiles);
+  localStorage.removeItem(getProfileKey(name));
+  renderProfileList();
+  showToast('Profil izbrisan', 'var(--red)');
+}
+
+function logoutProfile() {
+  save(); // Shrani pred odhodom
+  currentProfile = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+  renderProfileList();
+}
+window.onload = function() {
+  // Pokaži login screen takoj
+  renderProfileList();
+  // init se kliče šele po loginProfile()
+}
 </script>
 
 <!-- ══ ZXING BARCODE SCANNER ══ -->
@@ -1181,14 +1324,10 @@ async function startScanner() {
 
   try {
     scannerStream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: { ideal: 'environment' },
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      }
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
     });
   } catch(err) {
-    showToast('❌ Kamera ni dovoljena', 'var(--red)');
+    showToast('❌ Camera not allowed', 'var(--red)');
     return;
   }
 
@@ -1201,12 +1340,11 @@ async function startScanner() {
   idle.style.display = 'none';
   vp.insertBefore(video, overlay);
   overlay.style.display = 'flex';
-  btn.textContent = '⏹ Ustavi skener';
+  btn.textContent = '⏹ Stop Scanner';
   btn.style.background = 'var(--red)';
-  hint.textContent = 'Postavi črtno kodo v okvir…';
+  hint.textContent = 'Align barcode in frame…';
   scannerRunning = true;
 
-  // ZXing BrowserMultiFormatReader — podpira EAN-13, EAN-8, Code128, QR, UPC itd.
   codeReader = new ZXingBrowser.BrowserMultiFormatReader(null, {
     delayBetweenScanAttempts: 300,
     delayBetweenScanSuccess: 2000,
@@ -1224,15 +1362,14 @@ async function startScanner() {
           if (now - lastScan < 2000) return;
           lastScan = now;
           if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-          hint.textContent = '✅ Zaznana koda! Iščem…';
+          hint.textContent = '✅ Code detected! Searching…';
           stopScanner();
           lookupBarcode(code);
         }
-        // ZXing meče napako ko ni kode v okviru — to je normalno, ignoriramo
       }
     );
   } catch(e) {
-    showToast('⚠️ Skener ni uspel — poskusi galerijo', 'var(--orange)');
+    showToast('⚠️ Scanner failed — try gallery', 'var(--orange)');
     stopScanner();
   }
 }
@@ -1250,13 +1387,13 @@ function stopScanner() {
   if (video) video.remove();
   idle.style.display = 'flex';
   overlay.style.display = 'none';
-  btn.textContent = '▶ Zaženi skener';
+  btn.textContent = '▶ Start Scanner';
   btn.style.background = '';
   scannerRunning = false;
 }
 
 async function lookupBarcode(code) {
-  showToast('🔍 Iščem črtno kodo…', 'var(--accent)');
+  showToast('🔍 Looking up barcode…', 'var(--accent)');
   try {
     const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json`);
     const data = await res.json();
@@ -1274,14 +1411,14 @@ async function lookupBarcode(code) {
         sugar: parseFloat(n.sugars_100g || 0),
         sodium: Math.round((n.sodium_100g || 0) * 1000),
       };
-      showToast(`✅ Najdeno: ${selectedFood.name}`, 'var(--green)');
+      showToast(`✅ Found: ${selectedFood.name}`, 'var(--green)');
       openScannedFoodModal();
     } else {
-      showToast('⚠️ Produkt ni v bazi', 'var(--orange)');
+      showToast('⚠️ Product not in database', 'var(--orange)');
       openManualEntryModal();
     }
   } catch(e) {
-    showToast('⚠️ Iskanje ni uspelo', 'var(--red)');
+    showToast('⚠️ Lookup failed', 'var(--red)');
     openManualEntryModal();
   }
 }
@@ -1292,15 +1429,14 @@ function openScannedFoodModal() {
   document.getElementById('foodAmount').value = '100';
   document.getElementById('foodUnit').value = 'g';
   updatePreview();
-  document.getElementById('modalMealTitle').textContent = '📦 Dodaj skenirani produkt';
+  document.getElementById('modalMealTitle').textContent = '📦 Add Scanned Product';
   document.getElementById('addFoodModal').classList.add('open');
 }
 
-// Galerija — ZXing dekodira statično sliko
 async function handleBarcodeImage(event) {
   const file = event.target.files[0];
   if (!file) return;
-  showToast('📸 Berem sliko…', 'var(--accent)');
+  showToast('📸 Reading image…', 'var(--accent)');
   event.target.value = '';
 
   const url = URL.createObjectURL(file);
@@ -1319,11 +1455,11 @@ async function handleBarcodeImage(event) {
       if (result) {
         lookupBarcode(result.getText());
       } else {
-        showToast('⚠️ Kode ni bilo mogoče prebrati', 'var(--orange)');
+        showToast('⚠️ Could not read barcode', 'var(--orange)');
         openManualEntryModal();
       }
     } catch(e) {
-      showToast('⚠️ Kode ni bilo mogoče prebrati — poskusi ročni vnos', 'var(--orange)');
+      showToast('⚠️ Could not read barcode — try manual entry', 'var(--orange)');
       openManualEntryModal();
     }
   };
@@ -1338,70 +1474,45 @@ function openManualEntryModal() {
   modal.innerHTML = `
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:24px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <div style="font-size:18px;font-weight:800;">📦 Ročni vnos</div>
+        <div style="font-size:18px;font-weight:800;">📦 Manual Entry</div>
         <button onclick="document.getElementById('manualEntryModal').remove()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
       </div>
-      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Produkt ni najden. Vnesi podatke ročno.</p>
-      <div class="field"><label>Ime produkta</label><input type="text" id="meNome" placeholder="npr. Protein Bar XY"/></div>
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Product not found. Enter details manually.</p>
+      <div class="field"><label>Food Name</label><input type="text" id="meNome" placeholder="e.g. Protein Bar XY"/></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-        <div class="field" style="margin-bottom:10px;"><label>Kalorije (kcal/100g)</label><input type="number" id="meCal" placeholder="0"/></div>
-        <div class="field" style="margin-bottom:10px;"><label>Beljakovine (g)</label><input type="number" id="meProt" placeholder="0"/></div>
-        <div class="field" style="margin-bottom:10px;"><label>Ogljikohidrati (g)</label><input type="number" id="meCarbs" placeholder="0"/></div>
-        <div class="field" style="margin-bottom:10px;"><label>Maščobe (g)</label><input type="number" id="meFat" placeholder="0"/></div>
-        <div class="field" style="margin-bottom:10px;"><label>Vlaknine (g)</label><input type="number" id="meFiber" placeholder="0"/></div>
-        <div class="field" style="margin-bottom:10px;"><label>Sladkor (g)</label><input type="number" id="meSugar" placeholder="0"/></div>
-        <div class="field" style="margin-bottom:0;grid-column:1/-1;"><label>Natrij (mg)</label><input type="number" id="meSodium" placeholder="0"/></div>
+        <div class="field" style="margin-bottom:10px;"><label>Calories (kcal/100g)</label><input type="number" id="meCal" placeholder="0"/></div>
+        <div class="field" style="margin-bottom:10px;"><label>Protein (g)</label><input type="number" id="meProt" placeholder="0"/></div>
+        <div class="field" style="margin-bottom:10px;"><label>Carbs (g)</label><input type="number" id="meCarbs" placeholder="0"/></div>
+        <div class="field" style="margin-bottom:10px;"><label>Fat (g)</label><input type="number" id="meFat" placeholder="0"/></div>
+        <div class="field" style="margin-bottom:10px;"><label>Fiber (g)</label><input type="number" id="meFiber" placeholder="0"/></div>
+        <div class="field" style="margin-bottom:10px;"><label>Sugar (g)</label><input type="number" id="meSugar" placeholder="0"/></div>
+        <div class="field" style="margin-bottom:0;grid-column:1/-1;"><label>Sodium (mg)</label><input type="number" id="meSodium" placeholder="0"/></div>
       </div>
       <div style="display:flex;gap:10px;margin-top:16px;">
-        <button onclick="confirmManualEntry(false)" class="btn btn-primary" style="flex:1;">✅ Dodaj v dnevnik</button>
-        <button onclick="confirmManualEntry(true)" class="btn btn-ghost">💾 Shrani & dodaj</button>
+        <button onclick="confirmManualEntry(false)" class="btn btn-primary" style="flex:1;">✅ Add to Log</button>
+        <button onclick="confirmManualEntry(true)" class="btn btn-ghost">💾 Save & Add</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
   setTimeout(() => document.getElementById('meNome')?.focus(), 200);
 }
 
-function confirmManualEntry(saveFood=false) {
+function confirmManualEntry(saveFood = false) {
   const name = document.getElementById('meNome')?.value.trim();
-  if (!name) { showToast('Vnesi ime produkta', 'var(--red)'); return; }
+  if (!name) { showToast('Enter a food name', 'var(--red)'); return; }
   selectedFood = {
-    name, emoji:'📦', cat:'Scanned',
-    cal: parseFloat(document.getElementById('meCal')?.value)||0,
-    prot: parseFloat(document.getElementById('meProt')?.value)||0,
-    carbs: parseFloat(document.getElementById('meCarbs')?.value)||0,
-    fat: parseFloat(document.getElementById('meFat')?.value)||0,
-    fiber: parseFloat(document.getElementById('meFiber')?.value)||0,
-    sugar: parseFloat(document.getElementById('meSugar')?.value)||0,
-    sodium: parseFloat(document.getElementById('meSodium')?.value)||0,
+    name, emoji: '📦', cat: 'Scanned',
+    cal: parseFloat(document.getElementById('meCal')?.value) || 0,
+    prot: parseFloat(document.getElementById('meProt')?.value) || 0,
+    carbs: parseFloat(document.getElementById('meCarbs')?.value) || 0,
+    fat: parseFloat(document.getElementById('meFat')?.value) || 0,
+    fiber: parseFloat(document.getElementById('meFiber')?.value) || 0,
+    sugar: parseFloat(document.getElementById('meSugar')?.value) || 0,
+    sodium: parseFloat(document.getElementById('meSodium')?.value) || 0,
   };
-  if (saveFood) { state.customFoods.push({...selectedFood}); save(); showToast('💾 Shranjeno!'); }
+  if (saveFood) { state.customFoods.push({...selectedFood}); save(); showToast('💾 Saved!'); }
   document.getElementById('manualEntryModal')?.remove();
   openScannedFoodModal();
-}
-  <script type="module">
-
-import {
-  BrowserMultiFormatReader
-} from 'https://cdn.jsdelivr.net/npm/@zxing/browser@latest/+esm';
-
-const video = document.getElementById('video');
-
-navigator.mediaDevices
-  .getUserMedia({ video: true })
-  .then((stream) => {
-
-    video.srcObject = stream;
-    video.play();
-
-    console.log("kamera dela");
-
-  })
-  .catch((err) => {
-
-    console.error(err);
-
-  });
-
 </script>
 </body>
 </html>
