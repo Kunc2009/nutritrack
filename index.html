@@ -1300,7 +1300,7 @@ window.onload = function() {
 </script>
 
 <!-- ══ ZXING BARCODE SCANNER ══ -->
-<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/umd/index.min.js"></script>
 <script>
 let scannerRunning = false;
 let scannerStream = null;
@@ -1308,6 +1308,12 @@ let codeReader = null;
 let scannerControls = null;
 
 async function toggleLiveScanner() {
+  async function startScanner() {
+  if (typeof ZXingBrowser === 'undefined') {
+    showToast('❌ Scanner se ni naložil — osveži stran', 'var(--red)');
+    return;
+  }
+  // ... ostalo ostane enako
   if (scannerRunning) {
     stopScanner();
   } else {
