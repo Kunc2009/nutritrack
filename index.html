@@ -1352,6 +1352,13 @@ let scannerRunning = false;
 let html5Scanner = null;
 
 function toggleLiveScanner() {
+  if (typeof Html5Qrcode === 'undefined') {
+    showToast('❌ Scanner library failed to load', 'var(--red)');
+    return;
+  }
+  // Prevent double-clicks during startup
+  if (scannerRunning === 'starting') return;
+  
   if (scannerRunning) {
     stopScanner();
   } else {
@@ -1359,93 +1366,85 @@ function toggleLiveScanner() {
   }
 }
 
+function stopScanner() {
+  const idle    = document.getElementById('scannerIdle');
+  const overlay = document.getElementById('scannerOverlay');
+  const btn     = document.getElementById('scanBtn');
+
+  // Only call .stop() if the library instance actually has a running session
+  if (html5Scanner) {
+    html5Scanner.isScanning        // isScanning exists in 2.3.8
+      ? html5Scanner.stop().catch(() => {})
+      : Promise.resolve();
+    html5Scanner.clear().catch(() => {});
+    html5Scanner = null;
+  }
+
+  const readerDiv = document.getElementById('html5qr-reader');
+  if (readerDiv) readerDiv.remove();
+
+  if (idle)    idle.style.display    = 'flex';
+  if (overlay) overlay.style.display = 'none';
+  if (btn) {
+    btn.textContent      = '▶ Start Scanner';
+    btn.style.background = '';
+  }
+  scannerRunning = false;
+}
+
 async function startScanner() {
+  scannerRunning = 'starting';   // lock against double-clicks
   const idle    = document.getElementById('scannerIdle');
   const overlay = document.getElementById('scannerOverlay');
   const btn     = document.getElementById('scanBtn');
   const vp      = document.getElementById('scannerViewport');
 
-  // ── Create a dedicated reader div (outside the overlay) ──
   let readerDiv = document.getElementById('html5qr-reader');
   if (!readerDiv) {
     readerDiv = document.createElement('div');
     readerDiv.id = 'html5qr-reader';
-    // Must sit BELOW the overlay in z-order, filling the viewport
-    readerDiv.style.cssText = [
-      'position:absolute',
-      'inset:0',
-      'width:100%',
-      'height:100%',
-      'z-index:0',           // below overlay (z-index:1)
-      'overflow:hidden',
-      'border-radius:10px',
-    ].join(';');
-    vp.insertBefore(readerDiv, vp.firstChild);  // prepend so overlay is on top
+    readerDiv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;z-index:0;border-radius:10px;overflow:hidden;';
+    vp.insertBefore(readerDiv, vp.firstChild);
   }
-
-  // ── Fix the viewport so the injected <video> isn't clipped weirdly ──
-  vp.style.overflow = 'visible';   // let html5-qrcode do its thing
-  vp.style.overflow = 'hidden';    // then clip to rounded corners
 
   idle.style.display    = 'none';
   overlay.style.display = 'flex';
-  overlay.style.zIndex  = '1';     // ensure overlay laser sits above video
-  overlay.style.pointerEvents = 'none'; // clicks pass through to video if needed
+  overlay.style.zIndex  = '1';
+  overlay.style.pointerEvents = 'none';
+  btn.textContent       = '⏹ Stop Scanner';
+  btn.style.background  = 'var(--red)';
 
-  btn.textContent    = '⏹ Stop Scanner';
-  btn.style.background = 'var(--red)';
-  scannerRunning = true;
+  // Style injected video once it appears
+  const pollTimer = setInterval(() => {
+    const video = readerDiv.querySelector('video');
+    if (video) {
+      video.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;border-radius:10px;';
+      clearInterval(pollTimer);
+    }
+    readerDiv.querySelectorAll('img,#html5qr-reader__header_message,#html5qr-reader__status_span,#html5qr-reader__camera_selection,#html5qr-reader__dashboard')
+      .forEach(el => el.style.display = 'none');
+  }, 100);
+  setTimeout(() => clearInterval(pollTimer), 5000);
 
   try {
     html5Scanner = new Html5Qrcode('html5qr-reader');
+    const config = { fps: 12, qrbox: { width: 260, height: 120 } };
 
-    // ── Style the video element after it's injected ──
-    const styleVideo = () => {
-      const video = readerDiv.querySelector('video');
-      if (video) {
-        video.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;border-radius:10px;';
-      }
-      // Hide the default html5-qrcode UI chrome (header, footer, etc.)
-      const uiElements = readerDiv.querySelectorAll('img, #html5qr-reader__header_message, #html5qr-reader__status_span, #html5qr-reader__camera_selection, #html5qr-reader__dashboard');
-      uiElements.forEach(el => el.style.display = 'none');
-    };
-    // Poll briefly to catch the video element once injected
-    const pollTimer = setInterval(() => { styleVideo(); }, 100);
-    setTimeout(() => clearInterval(pollTimer), 3000);
-
-    // ── Try back camera first, fall back to any camera ──
-    const startConfig = { fps: 12, qrbox: { width: 260, height: 120 } };
     try {
-      await html5Scanner.start(
-        { facingMode: { exact: 'environment' } },
-        startConfig,
-        onScanSuccess,
-        () => {}
-      );
+      await html5Scanner.start({ facingMode: { exact: 'environment' } }, config, onScanSuccess, () => {});
     } catch (_) {
-      // Fallback: user-facing or default camera (works on desktop too)
-      await html5Scanner.start(
-        { facingMode: 'user' },
-        startConfig,
-        onScanSuccess,
-        () => {}
-      );
+      await html5Scanner.start({ facingMode: 'user' }, config, onScanSuccess, () => {});
     }
 
-    styleVideo(); // Apply immediately after start
+    scannerRunning = true;   // only set true after successful start
     document.getElementById('scanHint').textContent = 'Align barcode in frame';
 
   } catch (e) {
-    const isPermission = e && (
-      e.toString().toLowerCase().includes('permission') ||
-      e.toString().toLowerCase().includes('notallowed')
-    );
-    showToast(
-      isPermission
-        ? '❌ Camera permission denied — allow it in browser settings'
-        : '⚠️ Camera unavailable — try "From Gallery" instead',
-      'var(--red)'
-    );
+    clearInterval(pollTimer);
+    const msg = /permission|notallowed/i.test(e)
+      ? '❌ Camera permission denied — allow it in browser settings'
+      : '⚠️ Camera unavailable — try "From Gallery" instead';
+    showToast(msg, 'var(--red)');
     stopScanner();
   }
 }
