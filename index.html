@@ -1345,10 +1345,9 @@ window.onload = function() {
 };
 </script>
 
-<!-- ══ BARCODE SCANNER (html5-qrcode) ══ -->
+// ══ FIXED BARCODE SCANNER ══
+// Replace the entire <script> block after html5-qrcode CDN import with this
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script>
 let scannerRunning = false;
 let html5Scanner = null;
 
@@ -1361,53 +1360,107 @@ function toggleLiveScanner() {
 }
 
 async function startScanner() {
-  const idle = document.getElementById('scannerIdle');
+  const idle    = document.getElementById('scannerIdle');
   const overlay = document.getElementById('scannerOverlay');
-  const btn = document.getElementById('scanBtn');
-  const hint = document.getElementById('scanHint');
+  const btn     = document.getElementById('scanBtn');
+  const vp      = document.getElementById('scannerViewport');
 
-  // html5-qrcode potrebuje prazen div z id-jem
+  // ── Create a dedicated reader div (outside the overlay) ──
   let readerDiv = document.getElementById('html5qr-reader');
   if (!readerDiv) {
     readerDiv = document.createElement('div');
     readerDiv.id = 'html5qr-reader';
-    readerDiv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;';
-    document.getElementById('scannerViewport').insertBefore(readerDiv, overlay);
+    // Must sit BELOW the overlay in z-order, filling the viewport
+    readerDiv.style.cssText = [
+      'position:absolute',
+      'inset:0',
+      'width:100%',
+      'height:100%',
+      'z-index:0',           // below overlay (z-index:1)
+      'overflow:hidden',
+      'border-radius:10px',
+    ].join(';');
+    vp.insertBefore(readerDiv, vp.firstChild);  // prepend so overlay is on top
   }
 
-  idle.style.display = 'none';
+  // ── Fix the viewport so the injected <video> isn't clipped weirdly ──
+  vp.style.overflow = 'visible';   // let html5-qrcode do its thing
+  vp.style.overflow = 'hidden';    // then clip to rounded corners
+
+  idle.style.display    = 'none';
   overlay.style.display = 'flex';
-  btn.textContent = '⏹ Stop Scanner';
+  overlay.style.zIndex  = '1';     // ensure overlay laser sits above video
+  overlay.style.pointerEvents = 'none'; // clicks pass through to video if needed
+
+  btn.textContent    = '⏹ Stop Scanner';
   btn.style.background = 'var(--red)';
-  hint.textContent = 'Usmeri kamero na črtno kodo…';
   scannerRunning = true;
 
   try {
     html5Scanner = new Html5Qrcode('html5qr-reader');
-    await html5Scanner.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 250, height: 120 } },
-      (decodedText) => {
-        if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
-        hint.textContent = '✅ Koda zaznana! Iščem…';
-        stopScanner();
-        lookupBarcode(decodedText);
-      },
-      () => {} // ignoriramo vmesne napake pri skeniranju
+
+    // ── Style the video element after it's injected ──
+    const styleVideo = () => {
+      const video = readerDiv.querySelector('video');
+      if (video) {
+        video.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;border-radius:10px;';
+      }
+      // Hide the default html5-qrcode UI chrome (header, footer, etc.)
+      const uiElements = readerDiv.querySelectorAll('img, #html5qr-reader__header_message, #html5qr-reader__status_span, #html5qr-reader__camera_selection, #html5qr-reader__dashboard');
+      uiElements.forEach(el => el.style.display = 'none');
+    };
+    // Poll briefly to catch the video element once injected
+    const pollTimer = setInterval(() => { styleVideo(); }, 100);
+    setTimeout(() => clearInterval(pollTimer), 3000);
+
+    // ── Try back camera first, fall back to any camera ──
+    const startConfig = { fps: 12, qrbox: { width: 260, height: 120 } };
+    try {
+      await html5Scanner.start(
+        { facingMode: { exact: 'environment' } },
+        startConfig,
+        onScanSuccess,
+        () => {}
+      );
+    } catch (_) {
+      // Fallback: user-facing or default camera (works on desktop too)
+      await html5Scanner.start(
+        { facingMode: 'user' },
+        startConfig,
+        onScanSuccess,
+        () => {}
+      );
+    }
+
+    styleVideo(); // Apply immediately after start
+    document.getElementById('scanHint').textContent = 'Align barcode in frame';
+
+  } catch (e) {
+    const isPermission = e && (
+      e.toString().toLowerCase().includes('permission') ||
+      e.toString().toLowerCase().includes('notallowed')
     );
-  } catch(e) {
-    const msg = e && e.toString().includes('Permission')
-      ? '❌ Kamera ni dovoljena — dovoli dostop v brskalniku'
-      : '⚠️ Kamera ni na voljo — poskusi iz galerije';
-    showToast(msg, 'var(--red)');
+    showToast(
+      isPermission
+        ? '❌ Camera permission denied — allow it in browser settings'
+        : '⚠️ Camera unavailable — try "From Gallery" instead',
+      'var(--red)'
+    );
     stopScanner();
   }
 }
 
+function onScanSuccess(decodedText) {
+  if (navigator.vibrate) navigator.vibrate([80, 50, 80]);
+  document.getElementById('scanHint').textContent = '✅ Barcode detected! Looking up…';
+  stopScanner();
+  lookupBarcode(decodedText);
+}
+
 function stopScanner() {
-  const idle = document.getElementById('scannerIdle');
+  const idle    = document.getElementById('scannerIdle');
   const overlay = document.getElementById('scannerOverlay');
-  const btn = document.getElementById('scanBtn');
+  const btn     = document.getElementById('scanBtn');
 
   if (html5Scanner) {
     html5Scanner.stop().catch(() => {});
@@ -1417,49 +1470,50 @@ function stopScanner() {
   const readerDiv = document.getElementById('html5qr-reader');
   if (readerDiv) readerDiv.remove();
 
-  idle.style.display = 'flex';
+  idle.style.display    = 'flex';
   overlay.style.display = 'none';
-  btn.textContent = '▶ Start Scanner';
-  btn.style.background = '';
+  btn.textContent       = '▶ Start Scanner';
+  btn.style.background  = '';
   scannerRunning = false;
 }
 
 async function lookupBarcode(code) {
   showToast('🔍 Looking up barcode…', 'var(--accent)');
   try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json`);
+    const res  = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json`);
     const data = await res.json();
     if (data.status === 1 && data.product?.product_name) {
       const p = data.product;
       const n = p.nutriments || {};
       selectedFood = {
-        name: p.product_name,
-        emoji: '📦', cat: 'Scanned',
-        cal: Math.round(n['energy-kcal_100g'] || (n.energy_100g ? n.energy_100g / 4.184 : 0)),
-        prot: parseFloat(n.proteins_100g || 0),
-        carbs: parseFloat(n.carbohydrates_100g || 0),
-        fat: parseFloat(n.fat_100g || 0),
-        fiber: parseFloat(n.fiber_100g || 0),
-        sugar: parseFloat(n.sugars_100g || 0),
-        sodium: Math.round((n.sodium_100g || 0) * 1000),
+        name:   p.product_name,
+        emoji:  '📦',
+        cat:    'Scanned',
+        cal:    Math.round(n['energy-kcal_100g'] || (n.energy_100g ? n.energy_100g / 4.184 : 0)),
+        prot:   parseFloat(n.proteins_100g   || 0),
+        carbs:  parseFloat(n.carbohydrates_100g || 0),
+        fat:    parseFloat(n.fat_100g        || 0),
+        fiber:  parseFloat(n.fiber_100g      || 0),
+        sugar:  parseFloat(n.sugars_100g     || 0),
+        sodium: Math.round((n.sodium_100g    || 0) * 1000),
       };
       showToast(`✅ Found: ${selectedFood.name}`, 'var(--green)');
       openScannedFoodModal();
     } else {
-      showToast('⚠️ Product not in database', 'var(--orange)');
+      showToast('⚠️ Product not found in database', 'var(--orange)');
       openManualEntryModal();
     }
-  } catch(e) {
-    showToast('⚠️ Lookup failed', 'var(--red)');
+  } catch (e) {
+    showToast('⚠️ Lookup failed — check your connection', 'var(--red)');
     openManualEntryModal();
   }
 }
 
 function openScannedFoodModal() {
   currentMeal = 'snacks';
-  document.getElementById('foodSearch').value = selectedFood.name;
-  document.getElementById('foodAmount').value = '100';
-  document.getElementById('foodUnit').value = 'g';
+  document.getElementById('foodSearch').value  = selectedFood.name;
+  document.getElementById('foodAmount').value  = '100';
+  document.getElementById('foodUnit').value    = 'g';
   updatePreview();
   document.getElementById('modalMealTitle').textContent = '📦 Add Scanned Product';
   document.getElementById('addFoodModal').classList.add('open');
@@ -1470,20 +1524,13 @@ async function handleBarcodeImage(event) {
   if (!file) return;
   showToast('📸 Reading image…', 'var(--accent)');
   event.target.value = '';
-
-  const url = URL.createObjectURL(file);
-  const img = new Image();
-  img.src = url;
-  img.onload = async () => {
-    URL.revokeObjectURL(url);
-    try {
-      const result = await Html5Qrcode.scanFile(file, false);
-      lookupBarcode(result);
-    } catch(e) {
-      showToast('⚠️ Črtne kode ni bilo mogoče prebrati — poskusi ročno', 'var(--orange)');
-      openManualEntryModal();
-    }
-  };
+  try {
+    const result = await Html5Qrcode.scanFile(file, /* showImage= */ false);
+    lookupBarcode(result);
+  } catch (e) {
+    showToast('⚠️ No barcode found in image — try manual entry', 'var(--orange)');
+    openManualEntryModal();
+  }
 }
 
 function openManualEntryModal() {
@@ -1523,15 +1570,15 @@ function confirmManualEntry(saveFood = false) {
   if (!name) { showToast('Enter a food name', 'var(--red)'); return; }
   selectedFood = {
     name, emoji: '📦', cat: 'Scanned',
-    cal: parseFloat(document.getElementById('meCal')?.value) || 0,
-    prot: parseFloat(document.getElementById('meProt')?.value) || 0,
-    carbs: parseFloat(document.getElementById('meCarbs')?.value) || 0,
-    fat: parseFloat(document.getElementById('meFat')?.value) || 0,
-    fiber: parseFloat(document.getElementById('meFiber')?.value) || 0,
-    sugar: parseFloat(document.getElementById('meSugar')?.value) || 0,
+    cal:    parseFloat(document.getElementById('meCal')?.value)    || 0,
+    prot:   parseFloat(document.getElementById('meProt')?.value)   || 0,
+    carbs:  parseFloat(document.getElementById('meCarbs')?.value)  || 0,
+    fat:    parseFloat(document.getElementById('meFat')?.value)    || 0,
+    fiber:  parseFloat(document.getElementById('meFiber')?.value)  || 0,
+    sugar:  parseFloat(document.getElementById('meSugar')?.value)  || 0,
     sodium: parseFloat(document.getElementById('meSodium')?.value) || 0,
   };
-  if (saveFood) { state.customFoods.push({...selectedFood}); save(); showToast('💾 Saved!'); }
+  if (saveFood) { state.customFoods.push({...selectedFood}); save(); showToast('💾 Saved to custom foods!'); }
   document.getElementById('manualEntryModal')?.remove();
   openScannedFoodModal();
 }
