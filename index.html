@@ -488,7 +488,7 @@ body.light{--bg:#f0f2f8;--bg2:#fff;--bg3:#e8eaf2;--border:#d0d4e8;--text:#1a1a2e
         </div>
 
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary" style="flex:1;" id="scanBtn" onclick="toggleLiveScanner()">▶ Start Scanner</button>
+          <button class="btn btn-primary" style="flex:1;" id="scanBtn">▶ Start Scanner</button>
           <button class="btn btn-ghost" style="flex:1;" onclick="document.getElementById('barcodeGallery').click()">🖼️ From Gallery</button>
           <input type="file" id="barcodeGallery" accept="image/*" style="display:none;" onchange="handleBarcodeImage(event)"/>
         </div>
@@ -1581,6 +1581,12 @@ function confirmManualEntry(saveFood = false) {
   document.getElementById('manualEntryModal')?.remove();
   openScannedFoodModal();
 }
+  // Add at the very bottom of your scanner <script> block
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('scanBtn');
+  if (btn) btn.addEventListener('click', toggleLiveScanner);
+});
+
 </script>
 </body>
 </html>
